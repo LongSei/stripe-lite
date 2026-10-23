@@ -20,6 +20,13 @@ profile.cov
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+bin/
+dist/
+
+# Gemini / AGY artifacts
+GEMINI.md
+*pr_check*.md
+*pr_report*.md
 
 # Go workspace file
 go.work
