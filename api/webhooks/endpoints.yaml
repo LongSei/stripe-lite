@@ -1,0 +1,33 @@
+post:
+  summary: Register webhook endpoint (Stub)
+  description: Configures an HTTPS destination URL for push-based asynchronous event notifications. Managed by Sơn.
+  operationId: createWebhookEndpoint
+  tags:
+    - Webhooks
+  parameters:
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "./schemas.yaml#/CreateWebhookEndpointRequest"
+  responses:
+    "201":
+      description: Webhook endpoint registered successfully.
+      content:
+        application/json:
+          schema:
+            $ref: "./schemas.yaml#/WebhookEndpointResponse"
+    "400":
+      description: Invalid endpoint URL or unsupported event triggers.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+    "501":
+      description: Domain handler unimplemented.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"

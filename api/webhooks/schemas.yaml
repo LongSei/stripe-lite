@@ -1,0 +1,46 @@
+CreateWebhookEndpointRequest:
+  type: object
+  required:
+    - url
+    - events
+  properties:
+    url:
+      type: string
+      format: uri
+      description: The HTTPS endpoint URL receiving webhook deliveries.
+      example: "https://example.com/api/webhooks"
+    events:
+      type: array
+      description: List of event types to subscribe to.
+      items:
+        type: string
+      example:
+        - "payment_intent.succeeded"
+        - "payment_intent.payment_failed"
+
+WebhookEndpointResponse:
+  type: object
+  required:
+    - id
+    - url
+    - secret
+    - status
+  properties:
+    id:
+      type: string
+      description: Unique identifier for the webhook endpoint.
+      example: "we_01HXZ5M4N5P678"
+    url:
+      type: string
+      format: uri
+      example: "https://example.com/api/webhooks"
+    secret:
+      type: string
+      description: Signing secret used to compute HMAC SHA-256 event signatures.
+      example: "whsec_ABC123XYZ456"
+    status:
+      type: string
+      enum:
+        - active
+        - disabled
+      example: "active"

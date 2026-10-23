@@ -1,0 +1,27 @@
+AuthTokenRequest:
+  type: object
+  required:
+    - api_key
+  properties:
+    api_key:
+      type: string
+      description: Merchant secret API key.
+      example: "sk_live_51MszZ82eZvKYlo2CL"
+
+AuthTokenResponse:
+  type: object
+  required:
+    - token_type
+    - access_token
+    - expires_in
+  properties:
+    token_type:
+      type: string
+      example: "Bearer"
+    access_token:
+      type: string
+      example: "sec_tok_01HXZ5KBR2D912K"
+    expires_in:
+      type: integer
+      description: Lifetime of the access token in seconds.
+      example: 3600

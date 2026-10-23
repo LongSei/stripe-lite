@@ -28,17 +28,25 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
-// Defines values for ChargeResponseStatus.
+// Defines values for CreatePaymentIntentRequestCaptureMethod.
 const (
-	Failed    ChargeResponseStatus = "failed"
-	Pending   ChargeResponseStatus = "pending"
-	Succeeded ChargeResponseStatus = "succeeded"
+	Automatic CreatePaymentIntentRequestCaptureMethod = "automatic"
+	Manual    CreatePaymentIntentRequestCaptureMethod = "manual"
 )
 
 // Defines values for HealthResponseStatus.
 const (
 	Degraded HealthResponseStatus = "degraded"
 	Ok       HealthResponseStatus = "ok"
+)
+
+// Defines values for PaymentIntentResponseStatus.
+const (
+	Canceled              PaymentIntentResponseStatus = "canceled"
+	RequiresCapture       PaymentIntentResponseStatus = "requires_capture"
+	RequiresConfirmation  PaymentIntentResponseStatus = "requires_confirmation"
+	RequiresPaymentMethod PaymentIntentResponseStatus = "requires_payment_method"
+	Succeeded             PaymentIntentResponseStatus = "succeeded"
 )
 
 // Defines values for WebhookEndpointResponseStatus.
@@ -62,34 +70,21 @@ type AuthTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
-// ChargeResponse defines model for ChargeResponse.
-type ChargeResponse struct {
-	Amount    int64     `json:"amount"`
-	CreatedAt time.Time `json:"created_at"`
-	Currency  string    `json:"currency"`
-
-	// Id Unique identifier for the charge.
-	Id     string               `json:"id"`
-	Status ChargeResponseStatus `json:"status"`
-}
-
-// ChargeResponseStatus defines model for ChargeResponse.Status.
-type ChargeResponseStatus string
-
-// CreateChargeRequest defines model for CreateChargeRequest.
-type CreateChargeRequest struct {
-	// Amount Amount intended to be collected in smallest currency unit (e.g., cents).
-	Amount int64 `json:"amount"`
-
-	// Capture Whether to immediately capture the charge.
-	Capture *bool `json:"capture,omitempty"`
+// CreatePaymentIntentRequest defines model for CreatePaymentIntentRequest.
+type CreatePaymentIntentRequest struct {
+	// Amount Amount intended to be collected in smallest currency unit (e.g. cents).
+	Amount        int64                                    `json:"amount"`
+	CaptureMethod *CreatePaymentIntentRequestCaptureMethod `json:"capture_method,omitempty"`
 
 	// Currency Three-letter ISO 4217 currency code.
 	Currency string `json:"currency"`
 
-	// CustomerId Identifier of the customer being charged.
+	// CustomerId Customer identifier.
 	CustomerId string `json:"customer_id"`
 }
+
+// CreatePaymentIntentRequestCaptureMethod defines model for CreatePaymentIntentRequest.CaptureMethod.
+type CreatePaymentIntentRequestCaptureMethod string
 
 // CreateWebhookEndpointRequest defines model for CreateWebhookEndpointRequest.
 type CreateWebhookEndpointRequest struct {
@@ -118,6 +113,20 @@ type InvalidParam struct {
 	// Reason Reason why parameter failed validation constraints.
 	Reason string `json:"reason"`
 }
+
+// PaymentIntentResponse defines model for PaymentIntentResponse.
+type PaymentIntentResponse struct {
+	Amount    int64     `json:"amount"`
+	CreatedAt time.Time `json:"created_at"`
+	Currency  string    `json:"currency"`
+
+	// Id Unique identifier for the PaymentIntent.
+	Id     string                      `json:"id"`
+	Status PaymentIntentResponseStatus `json:"status"`
+}
+
+// PaymentIntentResponseStatus defines model for PaymentIntentResponse.Status.
+type PaymentIntentResponseStatus string
 
 // ProblemDocument RFC 7807 Problem Details representation for HTTP APIs.
 // See: https://datatracker.ietf.org/doc/html/rfc7807
@@ -167,8 +176,8 @@ type CreateAuthTokenParams struct {
 	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
-// CreateChargeParams defines parameters for CreateCharge.
-type CreateChargeParams struct {
+// CreatePaymentIntentParams defines parameters for CreatePaymentIntent.
+type CreatePaymentIntentParams struct {
 	// IdempotencyKey Unique idempotency key supplied by the client to prevent double charging across network partitions.
 	// Recommended to use a v4 UUID or unique sequence token (max length 255 chars).
 	IdempotencyKey *IdempotencyKeyHeader `json:"Idempotency-Key,omitempty"`
@@ -186,8 +195,8 @@ type CreateWebhookEndpointParams struct {
 // CreateAuthTokenJSONRequestBody defines body for CreateAuthToken for application/json ContentType.
 type CreateAuthTokenJSONRequestBody = AuthTokenRequest
 
-// CreateChargeJSONRequestBody defines body for CreateCharge for application/json ContentType.
-type CreateChargeJSONRequestBody = CreateChargeRequest
+// CreatePaymentIntentJSONRequestBody defines body for CreatePaymentIntent for application/json ContentType.
+type CreatePaymentIntentJSONRequestBody = CreatePaymentIntentRequest
 
 // CreateWebhookEndpointJSONRequestBody defines body for CreateWebhookEndpoint for application/json ContentType.
 type CreateWebhookEndpointJSONRequestBody = CreateWebhookEndpointRequest
@@ -200,11 +209,11 @@ type ServerInterface interface {
 	// Health check probe
 	// (GET /healthz)
 	GetHealthz(c *gin.Context)
-	// Create payment charge (Stub)
-	// (POST /payments/charges)
-	CreateCharge(c *gin.Context, params CreateChargeParams)
+	// Create payment intent (Stub)
+	// (POST /payment-intents)
+	CreatePaymentIntent(c *gin.Context, params CreatePaymentIntentParams)
 	// Register webhook endpoint (Stub)
-	// (POST /webhooks/endpoints)
+	// (POST /webhook-endpoints)
 	CreateWebhookEndpoint(c *gin.Context, params CreateWebhookEndpointParams)
 }
 
@@ -269,8 +278,8 @@ func (siw *ServerInterfaceWrapper) GetHealthz(c *gin.Context) {
 	siw.Handler.GetHealthz(c)
 }
 
-// CreateCharge operation middleware
-func (siw *ServerInterfaceWrapper) CreateCharge(c *gin.Context) {
+// CreatePaymentIntent operation middleware
+func (siw *ServerInterfaceWrapper) CreatePaymentIntent(c *gin.Context) {
 
 	var err error
 
@@ -279,7 +288,7 @@ func (siw *ServerInterfaceWrapper) CreateCharge(c *gin.Context) {
 	c.Set(ApiKeyAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params CreateChargeParams
+	var params CreatePaymentIntentParams
 
 	headers := c.Request.Header
 
@@ -328,7 +337,7 @@ func (siw *ServerInterfaceWrapper) CreateCharge(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateCharge(c, params)
+	siw.Handler.CreatePaymentIntent(c, params)
 }
 
 // CreateWebhookEndpoint operation middleware
@@ -403,8 +412,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.POST(options.BaseURL+"/auth/tokens", wrapper.CreateAuthToken)
 	router.GET(options.BaseURL+"/healthz", wrapper.GetHealthz)
-	router.POST(options.BaseURL+"/payments/charges", wrapper.CreateCharge)
-	router.POST(options.BaseURL+"/webhooks/endpoints", wrapper.CreateWebhookEndpoint)
+	router.POST(options.BaseURL+"/payment-intents", wrapper.CreatePaymentIntent)
+	router.POST(options.BaseURL+"/webhook-endpoints", wrapper.CreateWebhookEndpoint)
 }
 
 type CreateAuthTokenRequestObject struct {
@@ -421,6 +430,15 @@ type CreateAuthToken201JSONResponse AuthTokenResponse
 func (response CreateAuthToken201JSONResponse) VisitCreateAuthTokenResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAuthToken400ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response CreateAuthToken400ApplicationProblemPlusJSONResponse) VisitCreateAuthTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -477,45 +495,45 @@ func (response GetHealthz503ApplicationProblemPlusJSONResponse) VisitGetHealthzR
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateChargeRequestObject struct {
-	Params CreateChargeParams
-	Body   *CreateChargeJSONRequestBody
+type CreatePaymentIntentRequestObject struct {
+	Params CreatePaymentIntentParams
+	Body   *CreatePaymentIntentJSONRequestBody
 }
 
-type CreateChargeResponseObject interface {
-	VisitCreateChargeResponse(w http.ResponseWriter) error
+type CreatePaymentIntentResponseObject interface {
+	VisitCreatePaymentIntentResponse(w http.ResponseWriter) error
 }
 
-type CreateCharge201JSONResponse ChargeResponse
+type CreatePaymentIntent201JSONResponse PaymentIntentResponse
 
-func (response CreateCharge201JSONResponse) VisitCreateChargeResponse(w http.ResponseWriter) error {
+func (response CreatePaymentIntent201JSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateCharge400ApplicationProblemPlusJSONResponse ProblemDocument
+type CreatePaymentIntent400ApplicationProblemPlusJSONResponse ProblemDocument
 
-func (response CreateCharge400ApplicationProblemPlusJSONResponse) VisitCreateChargeResponse(w http.ResponseWriter) error {
+func (response CreatePaymentIntent400ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateCharge409ApplicationProblemPlusJSONResponse ProblemDocument
+type CreatePaymentIntent409ApplicationProblemPlusJSONResponse ProblemDocument
 
-func (response CreateCharge409ApplicationProblemPlusJSONResponse) VisitCreateChargeResponse(w http.ResponseWriter) error {
+func (response CreatePaymentIntent409ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateCharge501ApplicationProblemPlusJSONResponse ProblemDocument
+type CreatePaymentIntent501ApplicationProblemPlusJSONResponse ProblemDocument
 
-func (response CreateCharge501ApplicationProblemPlusJSONResponse) VisitCreateChargeResponse(w http.ResponseWriter) error {
+func (response CreatePaymentIntent501ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(501)
 
@@ -566,11 +584,11 @@ type StrictServerInterface interface {
 	// Health check probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
-	// Create payment charge (Stub)
-	// (POST /payments/charges)
-	CreateCharge(ctx context.Context, request CreateChargeRequestObject) (CreateChargeResponseObject, error)
+	// Create payment intent (Stub)
+	// (POST /payment-intents)
+	CreatePaymentIntent(ctx context.Context, request CreatePaymentIntentRequestObject) (CreatePaymentIntentResponseObject, error)
 	// Register webhook endpoint (Stub)
-	// (POST /webhooks/endpoints)
+	// (POST /webhook-endpoints)
 	CreateWebhookEndpoint(ctx context.Context, request CreateWebhookEndpointRequestObject) (CreateWebhookEndpointResponseObject, error)
 }
 
@@ -646,13 +664,13 @@ func (sh *strictHandler) GetHealthz(ctx *gin.Context) {
 	}
 }
 
-// CreateCharge operation middleware
-func (sh *strictHandler) CreateCharge(ctx *gin.Context, params CreateChargeParams) {
-	var request CreateChargeRequestObject
+// CreatePaymentIntent operation middleware
+func (sh *strictHandler) CreatePaymentIntent(ctx *gin.Context, params CreatePaymentIntentParams) {
+	var request CreatePaymentIntentRequestObject
 
 	request.Params = params
 
-	var body CreateChargeJSONRequestBody
+	var body CreatePaymentIntentJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.Status(http.StatusBadRequest)
 		ctx.Error(err)
@@ -661,10 +679,10 @@ func (sh *strictHandler) CreateCharge(ctx *gin.Context, params CreateChargeParam
 	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateCharge(ctx, request.(CreateChargeRequestObject))
+		return sh.ssi.CreatePaymentIntent(ctx, request.(CreatePaymentIntentRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateCharge")
+		handler = middleware(handler, "CreatePaymentIntent")
 	}
 
 	response, err := handler(ctx, request)
@@ -672,8 +690,8 @@ func (sh *strictHandler) CreateCharge(ctx *gin.Context, params CreateChargeParam
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(CreateChargeResponseObject); ok {
-		if err := validResponse.VisitCreateChargeResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(CreatePaymentIntentResponseObject); ok {
+		if err := validResponse.VisitCreatePaymentIntentResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -719,54 +737,54 @@ func (sh *strictHandler) CreateWebhookEndpoint(ctx *gin.Context, params CreateWe
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

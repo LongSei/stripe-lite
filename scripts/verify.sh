@@ -86,13 +86,13 @@ YAML_SPEC=$(curl -s "${BASE_URL}/openapi.yaml")
 echo "$YAML_SPEC" | grep -q 'title: Stripe-lite API Gateway' || { echo "FAILED (YAML title mismatch)"; exit 1; }
 echo "PASSED (Valid YAML specification served)"
 
-# Test 6: Stub endpoint RFC 7807 Problem Details (POST /api/v1/payments/charges)
-echo -n "[*] Testing Stub POST /api/v1/payments/charges (RFC 7807 501 Not Implemented) ... "
-STUB_RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${BASE_URL}/api/v1/payments/charges" \
+# Test 6: Stub endpoint RFC 7807 Problem Details (POST /api/v1/payment-intents)
+echo -n "[*] Testing Stub POST /api/v1/payment-intents (RFC 7807 501 Not Implemented) ... "
+STUB_RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${BASE_URL}/api/v1/payment-intents" \
     -H "Content-Type: application/json" \
     -H "Idempotency-Key: test-key-123" \
     -H "X-Request-Id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8" \
-    -d '{"amount": 1000, "currency": "usd", "customer_id": "cus_123"}')
+    -d '{"amount": 2000, "currency": "usd", "customer_id": "cus_123"}')
 STUB_CODE=$(echo "$STUB_RESP" | grep "HTTP_STATUS" | cut -d':' -f2)
 STUB_BODY=$(echo "$STUB_RESP" | grep -v "HTTP_STATUS")
 
@@ -119,11 +119,11 @@ fi
 echo "$AUTH_BODY" | grep -q "Khánh" || { echo "FAILED (Domain owner reference missing)"; exit 1; }
 echo "PASSED (HTTP 501 RFC 7807 ProblemDocument)"
 
-# Test 8: Stub endpoint RFC 7807 Problem Details (POST /api/v1/webhooks/endpoints)
-echo -n "[*] Testing Stub POST /api/v1/webhooks/endpoints (RFC 7807 501 Not Implemented) ... "
-WH_RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${BASE_URL}/api/v1/webhooks/endpoints" \
+# Test 8: Stub endpoint RFC 7807 Problem Details (POST /api/v1/webhook-endpoints)
+echo -n "[*] Testing Stub POST /api/v1/webhook-endpoints (RFC 7807 501 Not Implemented) ... "
+WH_RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${BASE_URL}/api/v1/webhook-endpoints" \
     -H "Content-Type: application/json" \
-    -d '{"url": "https://example.com/webhook", "events": ["charge.succeeded"]}')
+    -d '{"url": "https://example.com/webhook", "events": ["payment_intent.succeeded"]}')
 WH_CODE=$(echo "$WH_RESP" | grep "HTTP_STATUS" | cut -d':' -f2)
 WH_BODY=$(echo "$WH_RESP" | grep -v "HTTP_STATUS")
 

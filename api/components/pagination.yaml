@@ -1,0 +1,33 @@
+StartingAfterQueryParam:
+  name: starting_after
+  in: query
+  required: false
+  description: |
+    A cursor for pagination indicating after which object ID to fetch.
+    Pass the ID of the last item in the previous list.
+  schema:
+    type: string
+    example: "pi_01HXZ5JABC1234"
+
+EndingBeforeQueryParam:
+  name: ending_before
+  in: query
+  required: false
+  description: |
+    A cursor for backward pagination indicating before which object ID to fetch.
+  schema:
+    type: string
+    example: "pi_01HXZ5JABC1234"
+
+LimitQueryParam:
+  name: limit
+  in: query
+  required: false
+  description: |
+    Number of objects to return (1 to 100). Default is 10.
+  schema:
+    type: integer
+    default: 10
+    minimum: 1
+    maximum: 100
+    example: 10

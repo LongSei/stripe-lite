@@ -1,0 +1,40 @@
+post:
+  summary: Issue API session token (Stub)
+  description: Authenticates merchant credentials and issues a scoped bearer session token.
+  operationId: createAuthToken
+  tags:
+    - Authentication & Identity
+  security: []
+  parameters:
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "./schemas.yaml#/AuthTokenRequest"
+  responses:
+    "201":
+      description: Bearer token successfully minted.
+      content:
+        application/json:
+          schema:
+            $ref: "./schemas.yaml#/AuthTokenResponse"
+    "400":
+      description: Invalid request payload.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+    "401":
+      description: Authentication failed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+    "501":
+      description: Domain handler unimplemented.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"

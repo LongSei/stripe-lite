@@ -49,126 +49,22 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: "#/components/schemas/ProblemDocument"
+                $ref: "./components/problem.yaml#/ProblemDocument"
         "503":
           description: Service is degraded or experiencing downstream failures.
           content:
             application/problem+json:
               schema:
-                $ref: "#/components/schemas/ProblemDocument"
+                $ref: "./components/problem.yaml#/ProblemDocument"
 
   /auth/tokens:
-    post:
-      summary: Issue API session token (Stub)
-      description: Authenticates merchant credentials and issues a scoped bearer session token.
-      operationId: createAuthToken
-      security: []
-      tags:
-        - Authentication & Identity
-      parameters:
-        - $ref: "#/components/parameters/XRequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthTokenRequest"
-      responses:
-        "201":
-          description: Bearer token successfully minted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthTokenResponse"
-        "401":
-          description: Authentication failed.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
-        "501":
-          description: Domain handler unimplemented.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
+    $ref: "./auth/tokens.yaml"
 
-  /payments/charges:
-    post:
-      summary: Create payment charge (Stub)
-      description: Atomically captures or authorizes a payment charge with idempotency guarantees.
-      operationId: createCharge
-      tags:
-        - Payments & Core Engine
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKeyHeader"
-        - $ref: "#/components/parameters/XRequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateChargeRequest"
-      responses:
-        "201":
-          description: Charge captured or authorized successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChargeResponse"
-        "400":
-          description: Invalid request payload or parameter semantics.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
-        "409":
-          description: Idempotency conflict detected.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
-        "501":
-          description: Domain handler unimplemented.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
+  /payment-intents:
+    $ref: "./payments/payment_intents.yaml"
 
-  /webhooks/endpoints:
-    post:
-      summary: Register webhook endpoint (Stub)
-      description: Configures an HTTPS destination URL for push-based asynchronous event notifications.
-      operationId: createWebhookEndpoint
-      tags:
-        - Webhooks
-      parameters:
-        - $ref: "#/components/parameters/XRequestIdHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateWebhookEndpointRequest"
-      responses:
-        "201":
-          description: Webhook endpoint registered successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WebhookEndpointResponse"
-        "400":
-          description: Invalid endpoint URL or unsupported event triggers.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
-        "501":
-          description: Domain handler unimplemented.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ProblemDocument"
+  /webhook-endpoints:
+    $ref: "./webhooks/endpoints.yaml"
 
 components:
   securitySchemes:
@@ -185,27 +81,15 @@ components:
 
   parameters:
     IdempotencyKeyHeader:
-      name: Idempotency-Key
-      in: header
-      required: false
-      description: |
-        Unique idempotency key supplied by the client to prevent double charging across network partitions.
-        Recommended to use a v4 UUID or unique sequence token (max length 255 chars).
-      schema:
-        type: string
-        maxLength: 255
-        example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
-
+      $ref: "./components/headers.yaml#/IdempotencyKeyHeader"
     XRequestIdHeader:
-      name: X-Request-Id
-      in: header
-      required: false
-      description: |
-        Distributed correlation ID for end-to-end request tracing and observability.
-      schema:
-        type: string
-        format: uuid
-        example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+      $ref: "./components/headers.yaml#/XRequestIdHeader"
+    StartingAfter:
+      $ref: "./components/pagination.yaml#/StartingAfterQueryParam"
+    EndingBefore:
+      $ref: "./components/pagination.yaml#/EndingBeforeQueryParam"
+    Limit:
+      $ref: "./components/pagination.yaml#/LimitQueryParam"
 
   schemas:
     HealthResponse:
@@ -230,192 +114,6 @@ components:
           example: "1.0.0"
 
     ProblemDocument:
-      type: object
-      description: |
-        RFC 7807 Problem Details representation for HTTP APIs.
-        See: https://datatracker.ietf.org/doc/html/rfc7807
-      externalDocs:
-        description: RFC 7807 Specification
-        url: https://datatracker.ietf.org/doc/html/rfc7807
-      required:
-        - type
-        - title
-        - status
-      properties:
-        type:
-          type: string
-          format: uri
-          description: A URI reference identifying the problem type.
-          example: "https://api.stripe-lite.internal/errors/invalid-request"
-        title:
-          type: string
-          description: A short, human-readable summary of the problem type.
-          example: "Bad Request"
-        status:
-          type: integer
-          format: int32
-          description: The HTTP status code generated by the origin server.
-          example: 400
-        detail:
-          type: string
-          description: A human-readable explanation specific to this occurrence of the problem.
-          example: "The amount parameter must be a positive integer in smallest currency units."
-        instance:
-          type: string
-          format: uri-reference
-          description: A URI reference that identifies the specific occurrence of the problem.
-          example: "/requests/req_9b1deb4d3b7d"
-        invalid_params:
-          type: array
-          description: Granular field-level validation errors.
-          items:
-            $ref: "#/components/schemas/InvalidParam"
-
+      $ref: "./components/problem.yaml#/ProblemDocument"
     InvalidParam:
-      type: object
-      required:
-        - name
-        - reason
-      properties:
-        name:
-          type: string
-          description: The path or name of the invalid field or parameter.
-          example: "amount"
-        reason:
-          type: string
-          description: Reason why parameter failed validation constraints.
-          example: "Must be greater than 0"
-
-    AuthTokenRequest:
-      type: object
-      required:
-        - api_key
-      properties:
-        api_key:
-          type: string
-          description: Merchant secret API key.
-          example: "sk_live_51MszZ82eZvKYlo2CL"
-
-    AuthTokenResponse:
-      type: object
-      required:
-        - token_type
-        - access_token
-        - expires_in
-      properties:
-        token_type:
-          type: string
-          example: "Bearer"
-        access_token:
-          type: string
-          example: "sec_tok_01HXZ5KBR2D912K"
-        expires_in:
-          type: integer
-          description: Lifetime of the access token in seconds.
-          example: 3600
-
-    CreateChargeRequest:
-      type: object
-      required:
-        - amount
-        - currency
-        - customer_id
-      properties:
-        amount:
-          type: integer
-          format: int64
-          description: Amount intended to be collected in smallest currency unit (e.g., cents).
-          example: 2000
-        currency:
-          type: string
-          minLength: 3
-          maxLength: 3
-          description: Three-letter ISO 4217 currency code.
-          example: "usd"
-        customer_id:
-          type: string
-          description: Identifier of the customer being charged.
-          example: "cus_01HXZ5J9K6B87Q"
-        capture:
-          type: boolean
-          default: true
-          description: Whether to immediately capture the charge.
-
-    ChargeResponse:
-      type: object
-      required:
-        - id
-        - amount
-        - currency
-        - status
-        - created_at
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the charge.
-          example: "ch_01HXZ5JABC1234"
-        amount:
-          type: integer
-          format: int64
-          example: 2000
-        currency:
-          type: string
-          example: "usd"
-        status:
-          type: string
-          enum:
-            - succeeded
-            - pending
-            - failed
-          example: "succeeded"
-        created_at:
-          type: string
-          format: date-time
-          example: "2026-10-23T04:40:00Z"
-
-    CreateWebhookEndpointRequest:
-      type: object
-      required:
-        - url
-        - events
-      properties:
-        url:
-          type: string
-          format: uri
-          description: The HTTPS endpoint URL receiving webhook deliveries.
-          example: "https://example.com/api/webhooks"
-        events:
-          type: array
-          description: List of event types to subscribe to.
-          items:
-            type: string
-          example:
-            - "charge.succeeded"
-            - "charge.failed"
-
-    WebhookEndpointResponse:
-      type: object
-      required:
-        - id
-        - url
-        - secret
-        - status
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the webhook endpoint.
-          example: "we_01HXZ5M4N5P678"
-        url:
-          type: string
-          format: uri
-          example: "https://example.com/api/webhooks"
-        secret:
-          type: string
-          description: Signing secret used to compute HMAC SHA-256 event signatures.
-          example: "whsec_ABC123XYZ456"
-        status:
-          type: string
-          enum:
-            - active
-            - disabled
-          example: "active"
+      $ref: "./components/problem.yaml#/InvalidParam"

@@ -1,10 +1,12 @@
 SHELL := /bin/bash
 BIN_DIR := $(CURDIR)/bin
+DIST_DIR := $(CURDIR)/dist
 OAPI_CODEGEN := $(BIN_DIR)/oapi-codegen
+BUNDLED_SPEC := $(DIST_DIR)/openapi.bundled.yaml
 
-.PHONY: all build run test lint-spec lint-redocly codegen clean verify tools
+.PHONY: all build run test lint-spec lint-redocly bundle-spec codegen clean verify tools
 
-all: lint-spec codegen test build
+all: lint-spec lint-redocly codegen test build
 
 tools: $(OAPI_CODEGEN)
 
@@ -12,9 +14,14 @@ $(OAPI_CODEGEN):
 	@mkdir -p $(BIN_DIR)
 	GOBIN=$(BIN_DIR) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1
 
-codegen: $(OAPI_CODEGEN)
+bundle-spec:
+	@mkdir -p $(DIST_DIR)
+	@npx --yes @redocly/cli bundle api/openapi.yaml -o $(BUNDLED_SPEC)
+	@echo "==> Bundled OpenAPI spec at $(BUNDLED_SPEC)"
+
+codegen: $(OAPI_CODEGEN) bundle-spec
 	@mkdir -p internal/api/v1
-	$(OAPI_CODEGEN) -config oapi-codegen.yaml api/openapi.yaml
+	$(OAPI_CODEGEN) -config oapi-codegen.yaml $(BUNDLED_SPEC)
 	@echo "==> Code generation complete: internal/api/v1/v1.gen.go"
 
 lint-spec:
@@ -39,4 +46,4 @@ verify: build
 	./scripts/verify.sh
 
 clean:
-	rm -rf $(BIN_DIR) internal/api/v1/*.gen.go
+	rm -rf $(BIN_DIR) $(DIST_DIR) internal/api/v1/*.gen.go

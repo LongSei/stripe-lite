@@ -1,0 +1,22 @@
+IdempotencyKeyHeader:
+  name: Idempotency-Key
+  in: header
+  required: false
+  description: |
+    Unique idempotency key supplied by the client to prevent double charging across network partitions.
+    Recommended to use a v4 UUID or unique sequence token (max length 255 chars).
+  schema:
+    type: string
+    maxLength: 255
+    example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+
+XRequestIdHeader:
+  name: X-Request-Id
+  in: header
+  required: false
+  description: |
+    Distributed correlation ID for end-to-end request tracing and observability.
+  schema:
+    type: string
+    format: uuid
+    example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8

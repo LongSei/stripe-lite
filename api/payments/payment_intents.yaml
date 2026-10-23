@@ -1,0 +1,40 @@
+post:
+  summary: Create payment intent (Stub)
+  description: Initiates a new PaymentIntent with idempotency enforcement. Managed by Long.
+  operationId: createPaymentIntent
+  tags:
+    - Payments & Core Engine
+  parameters:
+    - $ref: "../components/headers.yaml#/IdempotencyKeyHeader"
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "./schemas.yaml#/CreatePaymentIntentRequest"
+  responses:
+    "201":
+      description: PaymentIntent created successfully.
+      content:
+        application/json:
+          schema:
+            $ref: "./schemas.yaml#/PaymentIntentResponse"
+    "400":
+      description: Invalid request payload.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+    "409":
+      description: Idempotency conflict.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+    "501":
+      description: Domain handler unimplemented.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"

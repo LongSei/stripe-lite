@@ -1,0 +1,62 @@
+CreatePaymentIntentRequest:
+  type: object
+  required:
+    - amount
+    - currency
+    - customer_id
+  properties:
+    amount:
+      type: integer
+      format: int64
+      description: Amount intended to be collected in smallest currency unit (e.g. cents).
+      example: 2000
+    currency:
+      type: string
+      minLength: 3
+      maxLength: 3
+      description: Three-letter ISO 4217 currency code.
+      example: "usd"
+    customer_id:
+      type: string
+      description: Customer identifier.
+      example: "cus_01HXZ5J9K6B87Q"
+    capture_method:
+      type: string
+      enum:
+        - automatic
+        - manual
+      default: automatic
+
+PaymentIntentResponse:
+  type: object
+  required:
+    - id
+    - amount
+    - currency
+    - status
+    - created_at
+  properties:
+    id:
+      type: string
+      description: Unique identifier for the PaymentIntent.
+      example: "pi_01HXZ5JABC1234"
+    amount:
+      type: integer
+      format: int64
+      example: 2000
+    currency:
+      type: string
+      example: "usd"
+    status:
+      type: string
+      enum:
+        - requires_payment_method
+        - requires_confirmation
+        - requires_capture
+        - succeeded
+        - canceled
+      example: "succeeded"
+    created_at:
+      type: string
+      format: date-time
+      example: "2026-10-23T04:40:00Z"
