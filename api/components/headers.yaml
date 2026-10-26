@@ -1,21 +1,25 @@
 IdempotencyKeyHeader:
   name: Idempotency-Key
   in: header
-  required: false
-  description: |
-    Unique idempotency key supplied by the client to prevent double charging across network partitions.
-    Recommended to use a v4 UUID or unique sequence token (max length 255 chars).
+  # The key is required to prevent duplicate payments and refunds.
+  required: true
+  description: |-
+    Use a unique key when you create a PaymentIntent or refund.
+    The key is required.
+    Use the same key for each retry of the same request.
+    The key prevents duplicate payments and refunds.
+    Use a UUID v4 or another unique value.
+    The key contains 1 to 255 characters.
   schema:
     type: string
+    minLength: 1
     maxLength: 255
     example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
-
 XRequestIdHeader:
   name: X-Request-Id
   in: header
   required: false
-  description: |
-    Distributed correlation ID for end-to-end request tracing and observability.
+  description: This optional ID links records for the same request. The API uses this ID for tracing.
   schema:
     type: string
     format: uuid
