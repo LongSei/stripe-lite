@@ -34,6 +34,12 @@ const (
 	Manual    CreatePaymentIntentRequestCaptureMethod = "manual"
 )
 
+// Defines values for CreateWebhookEndpointResponseStatus.
+const (
+	CreateWebhookEndpointResponseStatusActive   CreateWebhookEndpointResponseStatus = "active"
+	CreateWebhookEndpointResponseStatusDisabled CreateWebhookEndpointResponseStatus = "disabled"
+)
+
 // Defines values for HealthResponseStatus.
 const (
 	Degraded HealthResponseStatus = "degraded"
@@ -51,8 +57,15 @@ const (
 
 // Defines values for WebhookEndpointResponseStatus.
 const (
-	Active   WebhookEndpointResponseStatus = "active"
-	Disabled WebhookEndpointResponseStatus = "disabled"
+	WebhookEndpointResponseStatusActive   WebhookEndpointResponseStatus = "active"
+	WebhookEndpointResponseStatusDisabled WebhookEndpointResponseStatus = "disabled"
+)
+
+// Defines values for WebhookEventType.
+const (
+	PaymentIntentPaymentFailed WebhookEventType = "payment_intent.payment_failed"
+	PaymentIntentSucceeded     WebhookEventType = "payment_intent.succeeded"
+	RefundCreated              WebhookEventType = "refund.created"
 )
 
 // AuthTokenRequest defines model for AuthTokenRequest.
@@ -89,11 +102,33 @@ type CreatePaymentIntentRequestCaptureMethod string
 // CreateWebhookEndpointRequest defines model for CreateWebhookEndpointRequest.
 type CreateWebhookEndpointRequest struct {
 	// Events List of event types to subscribe to.
-	Events []string `json:"events"`
+	Events []WebhookEventType `json:"events"`
 
-	// Url The HTTPS endpoint URL receiving webhook deliveries.
+	// Url HTTPS destination URL receiving webhook deliveries.
 	Url string `json:"url"`
 }
+
+// CreateWebhookEndpointResponse defines model for CreateWebhookEndpointResponse.
+type CreateWebhookEndpointResponse struct {
+	// CreatedAt Timestamp when the endpoint was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Events Event types subscribed to by this endpoint.
+	Events []WebhookEventType `json:"events"`
+
+	// Id Unique identifier for the webhook endpoint.
+	Id string `json:"id"`
+
+	// Secret Signing secret used to compute HMAC SHA-256 event signatures. Returned only when the endpoint is created.
+	Secret string                              `json:"secret"`
+	Status CreateWebhookEndpointResponseStatus `json:"status"`
+
+	// Url HTTPS destination URL receiving webhook deliveries.
+	Url string `json:"url"`
+}
+
+// CreateWebhookEndpointResponseStatus defines model for CreateWebhookEndpointResponse.Status.
+type CreateWebhookEndpointResponseStatus string
 
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
@@ -112,6 +147,12 @@ type InvalidParam struct {
 
 	// Reason Reason why parameter failed validation constraints.
 	Reason string `json:"reason"`
+}
+
+// ListWebhookEndpointsResponse Collection of webhook endpoint details belonging to the authenticated merchant.
+type ListWebhookEndpointsResponse struct {
+	// Data Webhook endpoints belonging to the authenticated merchant. This list may be empty.
+	Data []WebhookEndpointResponse `json:"data"`
 }
 
 // PaymentIntentResponse defines model for PaymentIntentResponse.
@@ -150,19 +191,27 @@ type ProblemDocument struct {
 	Type string `json:"type"`
 }
 
-// WebhookEndpointResponse defines model for WebhookEndpointResponse.
+// WebhookEndpointResponse Webhook endpoint details safe to return from read operations. It never includes the signing secret.
 type WebhookEndpointResponse struct {
-	// Id Unique identifier for the webhook endpoint.
-	Id string `json:"id"`
+	// CreatedAt Timestamp when the endpoint was created.
+	CreatedAt time.Time `json:"created_at"`
 
-	// Secret Signing secret used to compute HMAC SHA-256 event signatures.
-	Secret string                        `json:"secret"`
+	// Events Event types subscribed to by this endpoint.
+	Events []WebhookEventType `json:"events"`
+
+	// Id Unique identifier for the webhook endpoint.
+	Id     string                        `json:"id"`
 	Status WebhookEndpointResponseStatus `json:"status"`
-	Url    string                        `json:"url"`
+
+	// Url HTTPS destination URL receiving webhook deliveries.
+	Url string `json:"url"`
 }
 
 // WebhookEndpointResponseStatus defines model for WebhookEndpointResponse.Status.
 type WebhookEndpointResponseStatus string
+
+// WebhookEventType Event type delivered to the webhook endpoint.
+type WebhookEventType string
 
 // IdempotencyKeyHeader defines model for IdempotencyKeyHeader.
 type IdempotencyKeyHeader = string
@@ -182,6 +231,12 @@ type CreatePaymentIntentParams struct {
 	// Recommended to use a v4 UUID or unique sequence token (max length 255 chars).
 	IdempotencyKey *IdempotencyKeyHeader `json:"Idempotency-Key,omitempty"`
 
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// ListWebhookEndpointsParams defines parameters for ListWebhookEndpoints.
+type ListWebhookEndpointsParams struct {
 	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
 	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
 }
@@ -212,7 +267,10 @@ type ServerInterface interface {
 	// Create payment intent (Stub)
 	// (POST /payment-intents)
 	CreatePaymentIntent(c *gin.Context, params CreatePaymentIntentParams)
-	// Register webhook endpoint (Stub)
+	// List webhook endpoints
+	// (GET /webhook-endpoints)
+	ListWebhookEndpoints(c *gin.Context, params ListWebhookEndpointsParams)
+	// Register webhook endpoint
 	// (POST /webhook-endpoints)
 	CreateWebhookEndpoint(c *gin.Context, params CreateWebhookEndpointParams)
 }
@@ -340,6 +398,49 @@ func (siw *ServerInterfaceWrapper) CreatePaymentIntent(c *gin.Context) {
 	siw.Handler.CreatePaymentIntent(c, params)
 }
 
+// ListWebhookEndpoints operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhookEndpoints(c *gin.Context) {
+
+	var err error
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWebhookEndpointsParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListWebhookEndpoints(c, params)
+}
+
 // CreateWebhookEndpoint operation middleware
 func (siw *ServerInterfaceWrapper) CreateWebhookEndpoint(c *gin.Context) {
 
@@ -413,6 +514,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/tokens", wrapper.CreateAuthToken)
 	router.GET(options.BaseURL+"/healthz", wrapper.GetHealthz)
 	router.POST(options.BaseURL+"/payment-intents", wrapper.CreatePaymentIntent)
+	router.GET(options.BaseURL+"/webhook-endpoints", wrapper.ListWebhookEndpoints)
 	router.POST(options.BaseURL+"/webhook-endpoints", wrapper.CreateWebhookEndpoint)
 }
 
@@ -540,6 +642,50 @@ func (response CreatePaymentIntent501ApplicationProblemPlusJSONResponse) VisitCr
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListWebhookEndpointsRequestObject struct {
+	Params ListWebhookEndpointsParams
+}
+
+type ListWebhookEndpointsResponseObject interface {
+	VisitListWebhookEndpointsResponse(w http.ResponseWriter) error
+}
+
+type ListWebhookEndpoints200JSONResponse ListWebhookEndpointsResponse
+
+func (response ListWebhookEndpoints200JSONResponse) VisitListWebhookEndpointsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWebhookEndpoints401ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response ListWebhookEndpoints401ApplicationProblemPlusJSONResponse) VisitListWebhookEndpointsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWebhookEndpoints403ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response ListWebhookEndpoints403ApplicationProblemPlusJSONResponse) VisitListWebhookEndpointsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWebhookEndpoints500ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response ListWebhookEndpoints500ApplicationProblemPlusJSONResponse) VisitListWebhookEndpointsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type CreateWebhookEndpointRequestObject struct {
 	Params CreateWebhookEndpointParams
 	Body   *CreateWebhookEndpointJSONRequestBody
@@ -549,7 +695,7 @@ type CreateWebhookEndpointResponseObject interface {
 	VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error
 }
 
-type CreateWebhookEndpoint201JSONResponse WebhookEndpointResponse
+type CreateWebhookEndpoint201JSONResponse CreateWebhookEndpointResponse
 
 func (response CreateWebhookEndpoint201JSONResponse) VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -567,11 +713,38 @@ func (response CreateWebhookEndpoint400ApplicationProblemPlusJSONResponse) Visit
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateWebhookEndpoint501ApplicationProblemPlusJSONResponse ProblemDocument
+type CreateWebhookEndpoint401ApplicationProblemPlusJSONResponse ProblemDocument
 
-func (response CreateWebhookEndpoint501ApplicationProblemPlusJSONResponse) VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error {
+func (response CreateWebhookEndpoint401ApplicationProblemPlusJSONResponse) VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(501)
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWebhookEndpoint403ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response CreateWebhookEndpoint403ApplicationProblemPlusJSONResponse) VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWebhookEndpoint409ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response CreateWebhookEndpoint409ApplicationProblemPlusJSONResponse) VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWebhookEndpoint500ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response CreateWebhookEndpoint500ApplicationProblemPlusJSONResponse) VisitCreateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -587,7 +760,10 @@ type StrictServerInterface interface {
 	// Create payment intent (Stub)
 	// (POST /payment-intents)
 	CreatePaymentIntent(ctx context.Context, request CreatePaymentIntentRequestObject) (CreatePaymentIntentResponseObject, error)
-	// Register webhook endpoint (Stub)
+	// List webhook endpoints
+	// (GET /webhook-endpoints)
+	ListWebhookEndpoints(ctx context.Context, request ListWebhookEndpointsRequestObject) (ListWebhookEndpointsResponseObject, error)
+	// Register webhook endpoint
 	// (POST /webhook-endpoints)
 	CreateWebhookEndpoint(ctx context.Context, request CreateWebhookEndpointRequestObject) (CreateWebhookEndpointResponseObject, error)
 }
@@ -699,6 +875,33 @@ func (sh *strictHandler) CreatePaymentIntent(ctx *gin.Context, params CreatePaym
 	}
 }
 
+// ListWebhookEndpoints operation middleware
+func (sh *strictHandler) ListWebhookEndpoints(ctx *gin.Context, params ListWebhookEndpointsParams) {
+	var request ListWebhookEndpointsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWebhookEndpoints(ctx, request.(ListWebhookEndpointsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWebhookEndpoints")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListWebhookEndpointsResponseObject); ok {
+		if err := validResponse.VisitListWebhookEndpointsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateWebhookEndpoint operation middleware
 func (sh *strictHandler) CreateWebhookEndpoint(ctx *gin.Context, params CreateWebhookEndpointParams) {
 	var request CreateWebhookEndpointRequestObject
@@ -737,54 +940,69 @@ func (sh *strictHandler) CreateWebhookEndpoint(ctx *gin.Context, params CreateWe
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"AQAA///x7sEQqj0AAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
