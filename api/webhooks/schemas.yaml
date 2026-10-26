@@ -1,5 +1,62 @@
+WebhookEventType:
+  type: string
+  description: Event type delivered to the webhook endpoint.
+  enum:
+    - payment_intent.succeeded
+    - payment_intent.payment_failed
+    - refund.created
+
+WebhookEvent:
+  type: object
+  description: Event delivered to a webhook endpoint. Delivery requests include a Stripe-Signature header; see signature.md for signing and verification.
+  required:
+    - id
+    - object
+    - type
+    - created
+    - data
+  properties:
+    id:
+      type: string
+      description: Unique identifier for the webhook event.
+      pattern: '^evt_[A-Za-z0-9]+$'
+      example: "evt_01HXZ5N7Q8R901"
+    object:
+      type: string
+      enum:
+        - event
+      example: "event"
+    type:
+      $ref: "#/WebhookEventType"
+    created:
+      type: integer
+      format: int64
+      description: Unix timestamp in seconds when the event was created.
+      example: 1792945688
+    data:
+      type: object
+      description: Event payload. PaymentIntent fields in this example match PaymentIntentResponse.
+      example:
+        id: "pi_01HXZ5JABC1234"
+        amount: 2000
+        currency: "usd"
+        status: "succeeded"
+        created_at: "2026-10-25T16:28:08Z"
+  example:
+    id: "evt_01HXZ5N7Q8R901"
+    object: "event"
+    type: "payment_intent.succeeded"
+    created: 1792945688
+    data:
+      id: "pi_01HXZ5JABC1234"
+      amount: 2000
+      currency: "usd"
+      status: "succeeded"
+      created_at: "2026-10-25T16:28:08Z"
+
 CreateWebhookEndpointRequest:
   type: object
+  additionalProperties: false
   required:
     - url
     - events
@@ -7,24 +64,29 @@ CreateWebhookEndpointRequest:
     url:
       type: string
       format: uri
-      description: The HTTPS endpoint URL receiving webhook deliveries.
+      description: HTTPS destination URL receiving webhook deliveries.
+      pattern: '^https://[^\s]+$'
       example: "https://example.com/api/webhooks"
     events:
       type: array
       description: List of event types to subscribe to.
+      minItems: 1
+      uniqueItems: true
       items:
-        type: string
+        $ref: "#/WebhookEventType"
       example:
         - "payment_intent.succeeded"
         - "payment_intent.payment_failed"
 
 WebhookEndpointResponse:
   type: object
+  description: Webhook endpoint details safe to return from read operations. It never includes the signing secret.
   required:
     - id
     - url
-    - secret
+    - events
     - status
+    - created_at
   properties:
     id:
       type: string
@@ -33,14 +95,98 @@ WebhookEndpointResponse:
     url:
       type: string
       format: uri
+      description: HTTPS destination URL receiving webhook deliveries.
+      pattern: '^https://[^\s]+$'
       example: "https://example.com/api/webhooks"
-    secret:
-      type: string
-      description: Signing secret used to compute HMAC SHA-256 event signatures.
-      example: "whsec_ABC123XYZ456"
+    events:
+      type: array
+      description: Event types subscribed to by this endpoint.
+      minItems: 1
+      uniqueItems: true
+      items:
+        $ref: "#/WebhookEventType"
     status:
       type: string
       enum:
         - active
         - disabled
       example: "active"
+    created_at:
+      type: string
+      format: date-time
+      description: Timestamp when the endpoint was created.
+      example: "2026-10-25T16:28:08Z"
+
+RotateWebhookSecretResponse:
+  type: object
+  description: Newly generated signing secret for a webhook endpoint. The previous secret is invalidated after successful rotation.
+  required:
+    - id
+    - secret
+  properties:
+    id:
+      type: string
+      description: Unique identifier for the webhook endpoint.
+      example: "we_01HXZ5M4N5P678"
+    secret:
+      type: string
+      description: New signing secret used to sign webhook deliveries after rotation.
+      pattern: '^whsec_[A-Za-z0-9]+$'
+      minLength: 7
+      example: "whsec_NEW789SECRET456"
+
+UpdateWebhookEndpointRequest:
+  type: object
+  description: Mutable webhook endpoint fields. The endpoint ID, signing secret, and creation timestamp cannot be updated.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    url:
+      type: string
+      format: uri
+      description: HTTPS destination URL receiving webhook deliveries.
+      pattern: '^https://[^\s]+$'
+      example: "https://example.com/api/webhooks/v2"
+    status:
+      type: string
+      enum:
+        - active
+        - disabled
+      example: "active"
+    events:
+      type: array
+      description: List of event types to subscribe to.
+      minItems: 1
+      uniqueItems: true
+      items:
+        $ref: "#/WebhookEventType"
+      example:
+        - "payment_intent.succeeded"
+        - "refund.created"
+
+ListWebhookEndpointsResponse:
+  type: object
+  description: Collection of webhook endpoint details belonging to the authenticated merchant.
+  required:
+    - data
+  properties:
+    data:
+      type: array
+      description: Webhook endpoints belonging to the authenticated merchant. This list may be empty.
+      items:
+        $ref: "#/WebhookEndpointResponse"
+
+CreateWebhookEndpointResponse:
+  description: Newly created webhook endpoint, including its one-time signing secret.
+  allOf:
+    - $ref: "#/WebhookEndpointResponse"
+    - type: object
+      required:
+        - secret
+      properties:
+        secret:
+          type: string
+          description: Signing secret used to compute HMAC SHA-256 event signatures. Returned only when the endpoint is created.
+          pattern: '^whsec_[A-Za-z0-9]+$'
+          minLength: 7
+          example: "whsec_ABC123XYZ456"
