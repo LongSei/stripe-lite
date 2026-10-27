@@ -19,7 +19,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Host:        getEnv("SERVER_HOST", "0.0.0.0"),
 		Port:        8080,
-		BasePath:    getEnv("SERVER_BASE_PATH", "/api/v1"),
+		BasePath:    getEnv("SERVER_BASE_PATH", "/v1"),
 		Environment: getEnv("APP_ENV", "development"),
 	}
 
