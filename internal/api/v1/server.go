@@ -2,17 +2,32 @@ package v1
 
 import (
 	"net/http"
+
+	"github.com/thep1ckaxe91/stripe-lite/internal/payments"
 )
 
 // Server implements StrictServerInterface for Stripe-lite v1 API gateway.
 type Server struct {
-	version string
+	version   string
+	payments  *payments.Service
+	auth      payments.Authenticator
+	rateLimit int
 }
 
 // NewServer constructs a new baseline Server instance.
-func NewServer(version string) *Server {
-	return &Server{
-		version: version,
+func NewServer(version string, options ...func(*Server)) *Server {
+	s := &Server{version: version, rateLimit: 120}
+	for _, option := range options {
+		option(s)
+	}
+	return s
+}
+func WithPayments(service *payments.Service, auth payments.Authenticator, rateLimit int) func(*Server) {
+	return func(s *Server) {
+		s.payments, s.auth = service, auth
+		if rateLimit > 0 {
+			s.rateLimit = rateLimit
+		}
 	}
 }
 

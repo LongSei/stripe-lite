@@ -35,9 +35,9 @@ The owner of that specification must add these entries under `paths`:
   $ref: "./payments/refunds.yaml#/x-retrieve"
 ```
 
-The root specification and gateway currently use `/api/v1`.
-During integration, align both with the required `/v1` prefix.
-Then generate the API code and update the strict handlers.
+The build now creates an integration entrypoint with these references and the `/v1` prefix.
+The source root specification stays unchanged.
+The shared root owner can add these references during the final team integration.
 The new contract replaces the old stub-only 501 response.
 
 ## Contract rules
@@ -56,7 +56,7 @@ The new contract replaces the old stub-only 501 response.
 - List filters with no matches return an empty list.
 
 The YAML descriptions contain the full state rules and examples.
-The root specification, generated server, and runtime handlers are outside this change.
+The runtime and verification sections describe the integrated Payments implementation.
 
 ## PostgreSQL schema
 
@@ -155,7 +155,7 @@ A successful refund moves the reservation into the refunded total.
 A failed refund releases its reservation. Applications cannot update these totals directly.
 Refunds derive merchant and currency from their parent payment.
 Idempotency keys are unique per merchant and creation operation.
-Request hashes and original response replay remain part of the service implementation.
+Migration 003 and the service store request hashes and original responses.
 
 Merchant and customer IDs use TEXT until the Identity schema is available.
 Cross-domain foreign keys need agreement on the Identity ID types.
@@ -163,3 +163,107 @@ The migration does not create placeholder Identity tables.
 The account ID identifies an external ledger account.
 The service must validate account ownership and currency and calculate balance_after under an account lock.
 This migration does not define account records or processor integration.
+
+## Runtime and verification
+
+The build uses `cmd/payment-spec` to add the Payments paths to a generated entrypoint.
+It writes `dist/openapi.payments.yaml` and does not edit `api/openapi.yaml`.
+The bundled specification, generated server, and Swagger UI use `/v1`.
+The generated server implements all nine Payments operations.
+Identity and Webhooks retain their existing handlers.
+
+Apply `database/migrations/003_payment_requests.sql` after migration 002.
+This table stores request hashes and the original successful creation responses.
+Each key belongs to one merchant and one creation operation.
+A transaction lock rejects a concurrent request with the same key.
+The response and resource commit in one database transaction.
+The API can replay the original response after a process restart.
+A retry of a refund without `amount` uses the original resolved amount.
+
+```mermaid
+erDiagram
+    payment_intents |o..o{ payment_requests : "intent replay source"
+    refunds |o..o{ payment_requests : "refund replay source"
+    payment_requests {
+        TEXT merchant_id PK
+        TEXT operation PK
+        VARCHAR(255) idempotency_key PK
+        CHAR(64) request_hash
+        TEXT resource_id
+        SMALLINT status_code
+        JSONB response_body
+        TIMESTAMPTZ created_at
+        TEXT payment_intent_id FK "generated, nullable"
+        TEXT refund_id FK "generated, nullable"
+    }
+```
+
+Exactly one generated source column is set in each request record.
+The application role can read and insert these records. It cannot change or delete them.
+
+### Configuration
+
+| Variable | Use |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection for the restricted application login. |
+| `PAYMENTS_API_KEYS` | JSON array of `key`, `merchant_id`, and `scopes`. Keys require at least 32 characters. |
+| `PAYMENTS_JWT_SECRET` | Optional HS256 verification secret with at least 32 bytes. |
+| `PAYMENTS_JWT_ISSUER` | Required issuer when JWT verification is configured. |
+| `PAYMENTS_JWT_AUDIENCE` | Required audience when JWT verification is configured. |
+| `PAYMENTS_RATE_LIMIT` | Requests per merchant per minute in this process. The default is 120. |
+| `PAYMENTS_PROCESSOR` | Set `simulated` to enable the development processor and customer directory. |
+| `PAYMENTS_DEMO_MERCHANT_ID` | Development merchant. The default is `merchant_demo`. |
+| `PAYMENTS_DEMO_CUSTOMER_ID` | Development customer. The default is `cus_demo`. |
+
+API keys and JWTs must contain the scopes listed in the operation descriptions.
+JWTs also require `merchant_id`, `exp`, `iss`, and `aud` claims.
+The `scope` claim contains space-separated scopes.
+Missing credentials receive 401. Missing permission receives 403.
+Credential verification does not issue tokens or change the Identity endpoints.
+The rate limit is local to one process. A shared limiter is required for multiple replicas.
+
+The normal customer adapter reads Identity-owned `customers` and `payment_methods` tables.
+Both tables need an `id` and `merchant_id`. Payment methods also need a `customer_id`.
+Give the application login SELECT access when Identity supplies those tables.
+The adapter returns 503 if the tables or required permissions are unavailable.
+It returns 404 if the customer or method belongs to another merchant.
+This migration does not create Identity tables.
+
+The development adapter accepts only the configured merchant and customer.
+Its payment methods are `pm_demo`, `pm_declined`, `pm_unavailable`, and `pm_refundfailed`.
+They model success, authorization decline, temporary failure, and refund failure.
+The simulated processor never moves real funds.
+The server rejects it when `APP_ENV=production`.
+No real processor adapter is included in Sprint 1.
+Payment confirmation requires an explicitly configured processor.
+A future adapter must support the stable operation keys supplied by the service.
+It must distinguish a confirmed failure from an unknown financial outcome.
+Unknown errors return 500. They must be reconciled before another financial attempt.
+
+The refund worker checks pending refunds each second.
+It locks the payment before the refund and uses a stable refund operation key.
+Multiple workers cannot settle the same refund twice.
+Capture debits the clearing account and credits the merchant account.
+Refunds reverse these entries.
+Account IDs derive from the merchant, currency, and account type.
+The service locks both accounts in a fixed order before it calculates balances.
+`balance_after` uses credit minus debit. Each value must fit in BIGINT.
+
+Run the acceptance checks from the repository root:
+
+```sh
+make lint-spec
+make lint-redocly
+make codegen
+make test
+make verify
+```
+
+`make test` and `make verify` require Docker, PostgreSQL 16, Python 3, and OpenSSL.
+They create a disposable PostgreSQL container and a restricted application login.
+They apply both migrations and remove the container when the checks finish.
+`make test` runs Go tests with the race detector.
+`make verify` starts the real server and checks all nine operations over HTTP.
+It also checks the asynchronous worker, original response replay, and exact int64 amounts.
+The HTTP tests validate response bodies and headers against the generated OpenAPI contract.
+The database tests check concurrent refunds, capture versus cancel, and immutable ledger permissions.

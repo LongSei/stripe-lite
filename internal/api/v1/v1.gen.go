@@ -28,10 +28,10 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
-// Defines values for CreatePaymentIntentRequestCaptureMethod.
+// Defines values for CaptureMethod.
 const (
-	Automatic CreatePaymentIntentRequestCaptureMethod = "automatic"
-	Manual    CreatePaymentIntentRequestCaptureMethod = "manual"
+	Automatic CaptureMethod = "automatic"
+	Manual    CaptureMethod = "manual"
 )
 
 // Defines values for CreateWebhookEndpointResponseStatus.
@@ -46,13 +46,57 @@ const (
 	Ok       HealthResponseStatus = "ok"
 )
 
-// Defines values for PaymentIntentResponseStatus.
+// Defines values for PaymentIntentListObject.
 const (
-	Canceled              PaymentIntentResponseStatus = "canceled"
-	RequiresCapture       PaymentIntentResponseStatus = "requires_capture"
-	RequiresConfirmation  PaymentIntentResponseStatus = "requires_confirmation"
-	RequiresPaymentMethod PaymentIntentResponseStatus = "requires_payment_method"
-	Succeeded             PaymentIntentResponseStatus = "succeeded"
+	PaymentIntentListObjectList PaymentIntentListObject = "list"
+)
+
+// Defines values for PaymentIntentListUrl.
+const (
+	V1paymentIntents PaymentIntentListUrl = "/v1/payment-intents"
+)
+
+// Defines values for PaymentIntentResponseObject.
+const (
+	PaymentIntent PaymentIntentResponseObject = "payment_intent"
+)
+
+// Defines values for PaymentIntentStatus.
+const (
+	PaymentIntentStatusCanceled              PaymentIntentStatus = "canceled"
+	PaymentIntentStatusRequiresCapture       PaymentIntentStatus = "requires_capture"
+	PaymentIntentStatusRequiresConfirmation  PaymentIntentStatus = "requires_confirmation"
+	PaymentIntentStatusRequiresPaymentMethod PaymentIntentStatus = "requires_payment_method"
+	PaymentIntentStatusSucceeded             PaymentIntentStatus = "succeeded"
+)
+
+// Defines values for RefundListObject.
+const (
+	RefundListObjectList RefundListObject = "list"
+)
+
+// Defines values for RefundListUrl.
+const (
+	V1refunds RefundListUrl = "/v1/refunds"
+)
+
+// Defines values for RefundReason.
+const (
+	Duplicate           RefundReason = "duplicate"
+	Fraudulent          RefundReason = "fraudulent"
+	RequestedByCustomer RefundReason = "requested_by_customer"
+)
+
+// Defines values for RefundResponseObject.
+const (
+	Refund RefundResponseObject = "refund"
+)
+
+// Defines values for RefundStatus.
+const (
+	RefundStatusFailed    RefundStatus = "failed"
+	RefundStatusPending   RefundStatus = "pending"
+	RefundStatusSucceeded RefundStatus = "succeeded"
 )
 
 // Defines values for UpdateWebhookEndpointRequestStatus.
@@ -89,21 +133,46 @@ type AuthTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
-// CreatePaymentIntentRequest defines model for CreatePaymentIntentRequest.
-type CreatePaymentIntentRequest struct {
-	// Amount Amount intended to be collected in smallest currency unit (e.g. cents).
-	Amount        int64                                    `json:"amount"`
-	CaptureMethod *CreatePaymentIntentRequestCaptureMethod `json:"capture_method,omitempty"`
+// CaptureMethod The `automatic` method captures funds during confirmation. The `manual` method authorizes funds first. It requires a separate full capture.
+type CaptureMethod string
 
-	// Currency Three-letter ISO 4217 currency code.
-	Currency string `json:"currency"`
-
-	// CustomerId Customer identifier.
-	CustomerId string `json:"customer_id"`
+// ConfirmPaymentIntentRequest Use `{}` to confirm a stored payment method. Supply `payment_method_id` if no method is stored. Supply it to replace a stored method.
+type ConfirmPaymentIntentRequest struct {
+	PaymentMethodId *PaymentMethodId `json:"payment_method_id,omitempty"`
 }
 
-// CreatePaymentIntentRequestCaptureMethod defines model for CreatePaymentIntentRequest.CaptureMethod.
-type CreatePaymentIntentRequestCaptureMethod string
+// CreatePaymentIntentRequest defines model for CreatePaymentIntentRequest.
+type CreatePaymentIntentRequest struct {
+	// Amount This amount is a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	Amount PositiveAmount `json:"amount"`
+
+	// CaptureMethod The `automatic` method captures funds during confirmation. The `manual` method authorizes funds first. It requires a separate full capture.
+	CaptureMethod CaptureMethod `json:"capture_method"`
+
+	// Currency The gateway uses supported lowercase ISO 4217 codes. Each code has three letters. The currency cannot change after creation.
+	Currency        Currency         `json:"currency"`
+	CustomerId      CustomerId       `json:"customer_id"`
+	PaymentMethodId *PaymentMethodId `json:"payment_method_id,omitempty"`
+}
+
+// CreateRefundRequest Omit `amount` to refund the full available amount. The refund uses the currency of the PaymentIntent.
+type CreateRefundRequest struct {
+	// Amount This amount is a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	Amount *PositiveAmount `json:"amount,omitempty"`
+
+	// Metadata The merchant can supply metadata as string keys and string values. If the request omits metadata, the API uses an empty object.
+	Metadata        *Metadata       `json:"metadata,omitempty"`
+	PaymentIntentId PaymentIntentId `json:"payment_intent_id"`
+
+	// Reason This field gives the refund reason from the merchant. If the request omits `reason`, the response also omits `reason`.
+	Reason *RefundReason `json:"reason,omitempty"`
+}
 
 // CreateWebhookEndpointRequest defines model for CreateWebhookEndpointRequest.
 type CreateWebhookEndpointRequest struct {
@@ -136,6 +205,12 @@ type CreateWebhookEndpointResponse struct {
 // CreateWebhookEndpointResponseStatus defines model for CreateWebhookEndpointResponse.Status.
 type CreateWebhookEndpointResponseStatus string
 
+// Currency The gateway uses supported lowercase ISO 4217 codes. Each code has three letters. The currency cannot change after creation.
+type Currency = string
+
+// CustomerId defines model for CustomerId.
+type CustomerId = string
+
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
 	Status    HealthResponseStatus `json:"status"`
@@ -161,19 +236,152 @@ type ListWebhookEndpointsResponse struct {
 	Data []WebhookEndpointResponse `json:"data"`
 }
 
-// PaymentIntentResponse defines model for PaymentIntentResponse.
-type PaymentIntentResponse struct {
-	Amount    int64     `json:"amount"`
-	CreatedAt time.Time `json:"created_at"`
-	Currency  string    `json:"currency"`
+// Metadata The merchant can supply metadata as string keys and string values. If the request omits metadata, the API uses an empty object.
+type Metadata map[string]string
 
-	// Id Unique identifier for the PaymentIntent.
-	Id     string                      `json:"id"`
-	Status PaymentIntentResponseStatus `json:"status"`
+// NonNegativeAmount This amount is zero or a positive integer in the smallest currency unit.
+// The maximum value of `int64` is `9223372036854775807`.
+// The API must reject values outside this range.
+// The schema has no numeric `maximum` because JSON tools can round this value.
+type NonNegativeAmount = int64
+
+// PaymentIntentId defines model for PaymentIntentId.
+type PaymentIntentId = string
+
+// PaymentIntentList defines model for PaymentIntentList.
+type PaymentIntentList struct {
+	Data []PaymentIntentResponse `json:"data"`
+
+	// HasMore This value shows whether more results exist in the requested direction.
+	HasMore bool                    `json:"has_more"`
+	Object  PaymentIntentListObject `json:"object"`
+
+	// Url This value contains the collection path and server prefix. It does not contain query parameters.
+	Url PaymentIntentListUrl `json:"url"`
 }
 
-// PaymentIntentResponseStatus defines model for PaymentIntentResponse.Status.
-type PaymentIntentResponseStatus string
+// PaymentIntentListObject defines model for PaymentIntentList.Object.
+type PaymentIntentListObject string
+
+// PaymentIntentListUrl This value contains the collection path and server prefix. It does not contain query parameters.
+type PaymentIntentListUrl string
+
+// PaymentIntentResponse This response contains the current payment state and amounts.
+// Authentication identifies the merchant that owns the resource.
+//
+// In `requires_capture`, `amount_capturable` equals `amount`.
+// In other states, `amount_capturable` is zero.
+// In `succeeded`, `amount_received` equals `amount`.
+// In other states, `amount_received` is zero.
+// This contract does not permit partial capture.
+//
+// The total of `amount_refunded` and `amount_refund_pending` must not exceed `amount_received`.
+// Refund totals are zero before `succeeded`.
+//
+// The `created_at` value does not change.
+// The `updated_at` value changes when the state, payment method, or refund totals change.
+// The API does not change `amount`, `currency`, `customer_id`, or `capture_method`.
+type PaymentIntentResponse struct {
+	// Amount This amount is a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	Amount PositiveAmount `json:"amount"`
+
+	// AmountCapturable This amount is zero or a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	AmountCapturable NonNegativeAmount `json:"amount_capturable"`
+
+	// AmountReceived This amount is zero or a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	AmountReceived NonNegativeAmount `json:"amount_received"`
+
+	// AmountRefundPending This amount is zero or a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	AmountRefundPending NonNegativeAmount `json:"amount_refund_pending"`
+
+	// AmountRefunded This amount is zero or a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	AmountRefunded NonNegativeAmount `json:"amount_refunded"`
+
+	// CaptureMethod The `automatic` method captures funds during confirmation. The `manual` method authorizes funds first. It requires a separate full capture.
+	CaptureMethod CaptureMethod `json:"capture_method"`
+	CreatedAt     time.Time     `json:"created_at"`
+
+	// Currency The gateway uses supported lowercase ISO 4217 codes. Each code has three letters. The currency cannot change after creation.
+	Currency   Currency                    `json:"currency"`
+	CustomerId CustomerId                  `json:"customer_id"`
+	Id         PaymentIntentId             `json:"id"`
+	Object     PaymentIntentResponseObject `json:"object"`
+
+	// PaymentMethodId This field identifies the payment method for the customer. It is null if no method is attached. A declined authorization clears it.
+	PaymentMethodId *string `json:"payment_method_id"`
+
+	// Status Creation without a payment method sets `status` to `requires_payment_method`.
+	// Creation with a payment method sets `status` to `requires_confirmation`.
+	// Confirmation can start in either state.
+	//
+	// After successful confirmation, automatic capture sets `status` to `succeeded`.
+	// After successful confirmation, manual capture sets `status` to `requires_capture`.
+	// If the processor declines authorization, the API sets `status` to `requires_payment_method`.
+	// The API clears the attached payment method after that failure.
+	//
+	// Capture from `requires_capture` sets `status` to `succeeded`.
+	// This capture requires the manual method.
+	// Cancellation can start from `requires_payment_method`, `requires_confirmation`, or `requires_capture`.
+	// Cancellation sets `status` to `canceled`.
+	// Cancellation from `canceled` returns 200 without other changes.
+	//
+	// The `succeeded` and `canceled` states are final.
+	// Refunds do not change the PaymentIntent state.
+	// Invalid transitions cause 409 without a state change.
+	// Validation errors do not change the state.
+	// Confirmed processor failures without financial effects do not change the state.
+	Status    PaymentIntentStatus `json:"status"`
+	UpdatedAt time.Time           `json:"updated_at"`
+}
+
+// PaymentIntentResponseObject defines model for PaymentIntentResponse.Object.
+type PaymentIntentResponseObject string
+
+// PaymentIntentStatus Creation without a payment method sets `status` to `requires_payment_method`.
+// Creation with a payment method sets `status` to `requires_confirmation`.
+// Confirmation can start in either state.
+//
+// After successful confirmation, automatic capture sets `status` to `succeeded`.
+// After successful confirmation, manual capture sets `status` to `requires_capture`.
+// If the processor declines authorization, the API sets `status` to `requires_payment_method`.
+// The API clears the attached payment method after that failure.
+//
+// Capture from `requires_capture` sets `status` to `succeeded`.
+// This capture requires the manual method.
+// Cancellation can start from `requires_payment_method`, `requires_confirmation`, or `requires_capture`.
+// Cancellation sets `status` to `canceled`.
+// Cancellation from `canceled` returns 200 without other changes.
+//
+// The `succeeded` and `canceled` states are final.
+// Refunds do not change the PaymentIntent state.
+// Invalid transitions cause 409 without a state change.
+// Validation errors do not change the state.
+// Confirmed processor failures without financial effects do not change the state.
+type PaymentIntentStatus string
+
+// PaymentMethodId defines model for PaymentMethodId.
+type PaymentMethodId = string
+
+// PositiveAmount This amount is a positive integer in the smallest currency unit.
+// The maximum value of `int64` is `9223372036854775807`.
+// The API must reject values outside this range.
+// The schema has no numeric `maximum` because JSON tools can round this value.
+type PositiveAmount = int64
 
 // ProblemDocument RFC 7807 Problem Details representation for HTTP APIs.
 // See: https://datatracker.ietf.org/doc/html/rfc7807
@@ -196,6 +404,75 @@ type ProblemDocument struct {
 	// Type A URI reference identifying the problem type.
 	Type string `json:"type"`
 }
+
+// RefundId defines model for RefundId.
+type RefundId = string
+
+// RefundList defines model for RefundList.
+type RefundList struct {
+	Data []RefundResponse `json:"data"`
+
+	// HasMore This value shows whether more results exist in the requested direction.
+	HasMore bool             `json:"has_more"`
+	Object  RefundListObject `json:"object"`
+
+	// Url This value contains the collection path and server prefix. It does not contain query parameters.
+	Url RefundListUrl `json:"url"`
+}
+
+// RefundListObject defines model for RefundList.Object.
+type RefundListObject string
+
+// RefundListUrl This value contains the collection path and server prefix. It does not contain query parameters.
+type RefundListUrl string
+
+// RefundReason This field gives the refund reason from the merchant. If the request omits `reason`, the response also omits `reason`.
+type RefundReason string
+
+// RefundResponse defines model for RefundResponse.
+type RefundResponse struct {
+	// Amount This amount is a positive integer in the smallest currency unit.
+	// The maximum value of `int64` is `9223372036854775807`.
+	// The API must reject values outside this range.
+	// The schema has no numeric `maximum` because JSON tools can round this value.
+	Amount    PositiveAmount `json:"amount"`
+	CreatedAt time.Time      `json:"created_at"`
+
+	// Currency The gateway uses supported lowercase ISO 4217 codes. Each code has three letters. The currency cannot change after creation.
+	Currency Currency `json:"currency"`
+	Id       RefundId `json:"id"`
+
+	// Metadata The merchant can supply metadata as string keys and string values. If the request omits metadata, the API uses an empty object.
+	Metadata        Metadata             `json:"metadata"`
+	Object          RefundResponseObject `json:"object"`
+	PaymentIntentId PaymentIntentId      `json:"payment_intent_id"`
+
+	// Reason This field gives the refund reason from the merchant. If the request omits `reason`, the response also omits `reason`.
+	Reason *RefundReason `json:"reason,omitempty"`
+
+	// Status Creation sets `status` to `pending` and reserves the refund amount.
+	// Internal processing changes `pending` to `succeeded` or `failed`.
+	// Success uses the reserved amount.
+	// Failure releases the reserved amount.
+	//
+	// The `succeeded` and `failed` states are final.
+	// No public endpoint can change the refund state.
+	// A new attempt after failure requires a new refund and a new idempotency key.
+	Status RefundStatus `json:"status"`
+}
+
+// RefundResponseObject defines model for RefundResponse.Object.
+type RefundResponseObject string
+
+// RefundStatus Creation sets `status` to `pending` and reserves the refund amount.
+// Internal processing changes `pending` to `succeeded` or `failed`.
+// Success uses the reserved amount.
+// Failure releases the reserved amount.
+//
+// The `succeeded` and `failed` states are final.
+// No public endpoint can change the refund state.
+// A new attempt after failure requires a new refund and a new idempotency key.
+type RefundStatus string
 
 // RotateWebhookSecretResponse Newly generated signing secret for a webhook endpoint. The previous secret is invalidated after successful rotation.
 type RotateWebhookSecretResponse struct {
@@ -241,11 +518,76 @@ type WebhookEndpointResponseStatus string
 // WebhookEventType Event type delivered to the webhook endpoint.
 type WebhookEventType string
 
+// EndingBeforeQueryParam defines model for EndingBeforeQueryParam.
+type EndingBeforeQueryParam = string
+
 // IdempotencyKeyHeader defines model for IdempotencyKeyHeader.
 type IdempotencyKeyHeader = string
 
+// LimitQueryParam defines model for LimitQueryParam.
+type LimitQueryParam = int
+
+// StartingAfterQueryParam defines model for StartingAfterQueryParam.
+type StartingAfterQueryParam = string
+
 // XRequestIdHeader defines model for XRequestIdHeader.
 type XRequestIdHeader = openapi_types.UUID
+
+// ConfirmInvalidRequest RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type ConfirmInvalidRequest = ProblemDocument
+
+// CreateInvalidRequest RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type CreateInvalidRequest = ProblemDocument
+
+// Forbidden RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type Forbidden = ProblemDocument
+
+// IdempotencyConflict RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type IdempotencyConflict = ProblemDocument
+
+// InvalidPagination RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type InvalidPagination = ProblemDocument
+
+// InvalidPathParameter RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type InvalidPathParameter = ProblemDocument
+
+// NotFound RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type NotFound = ProblemDocument
+
+// PaymentDeclined RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type PaymentDeclined = ProblemDocument
+
+// ProcessorUnavailable RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type ProcessorUnavailable = ProblemDocument
+
+// RateLimited RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type RateLimited = ProblemDocument
+
+// RefundConflict RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type RefundConflict = ProblemDocument
+
+// ServerError RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type ServerError = ProblemDocument
+
+// StateConflict RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type StateConflict = ProblemDocument
+
+// Unauthorized RFC 7807 Problem Details representation for HTTP APIs.
+// See: https://datatracker.ietf.org/doc/html/rfc7807
+type Unauthorized = ProblemDocument
 
 // CreateAuthTokenParams defines parameters for CreateAuthToken.
 type CreateAuthTokenParams struct {
@@ -253,12 +595,100 @@ type CreateAuthTokenParams struct {
 	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
+// ListPaymentIntentsParams defines parameters for ListPaymentIntents.
+type ListPaymentIntentsParams struct {
+	// StartingAfter A cursor for pagination indicating after which object ID to fetch.
+	// Pass the ID of the last item in the previous list.
+	StartingAfter *StartingAfterQueryParam `form:"starting_after,omitempty" json:"starting_after,omitempty"`
+
+	// EndingBefore A cursor for backward pagination indicating before which object ID to fetch.
+	EndingBefore *EndingBeforeQueryParam `form:"ending_before,omitempty" json:"ending_before,omitempty"`
+
+	// Limit Number of objects to return (1 to 100). Default is 10.
+	Limit *LimitQueryParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// CustomerId The API returns payment intents for this customer only. If a valid ID has no matches, the API returns an empty list.
+	CustomerId *CustomerId `form:"customer_id,omitempty" json:"customer_id,omitempty"`
+
+	// Status The API returns resources with this state only.
+	Status *PaymentIntentStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
 // CreatePaymentIntentParams defines parameters for CreatePaymentIntent.
 type CreatePaymentIntentParams struct {
-	// IdempotencyKey Unique idempotency key supplied by the client to prevent double charging across network partitions.
-	// Recommended to use a v4 UUID or unique sequence token (max length 255 chars).
-	IdempotencyKey *IdempotencyKeyHeader `json:"Idempotency-Key,omitempty"`
+	// IdempotencyKey This key is required to create a PaymentIntent or refund.
+	// Use the same key for each retry of the same request.
+	// The key prevents duplicate payments and refunds.
+	// Use a UUID v4 or another unique value.
+	IdempotencyKey IdempotencyKeyHeader `json:"Idempotency-Key"`
 
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetPaymentIntentParams defines parameters for GetPaymentIntent.
+type GetPaymentIntentParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// CancelPaymentIntentParams defines parameters for CancelPaymentIntent.
+type CancelPaymentIntentParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// CapturePaymentIntentParams defines parameters for CapturePaymentIntent.
+type CapturePaymentIntentParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// ConfirmPaymentIntentParams defines parameters for ConfirmPaymentIntent.
+type ConfirmPaymentIntentParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// ListRefundsParams defines parameters for ListRefunds.
+type ListRefundsParams struct {
+	// StartingAfter A cursor for pagination indicating after which object ID to fetch.
+	// Pass the ID of the last item in the previous list.
+	StartingAfter *StartingAfterQueryParam `form:"starting_after,omitempty" json:"starting_after,omitempty"`
+
+	// EndingBefore A cursor for backward pagination indicating before which object ID to fetch.
+	EndingBefore *EndingBeforeQueryParam `form:"ending_before,omitempty" json:"ending_before,omitempty"`
+
+	// Limit Number of objects to return (1 to 100). Default is 10.
+	Limit *LimitQueryParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaymentIntentId The API returns refunds for this PaymentIntent only. If a valid ID has no matches, the API returns an empty list.
+	PaymentIntentId *PaymentIntentId `form:"payment_intent_id,omitempty" json:"payment_intent_id,omitempty"`
+
+	// Status The API returns resources with this state only.
+	Status *RefundStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// CreateRefundParams defines parameters for CreateRefund.
+type CreateRefundParams struct {
+	// IdempotencyKey This key is required to create a PaymentIntent or refund.
+	// Use the same key for each retry of the same request.
+	// The key prevents duplicate payments and refunds.
+	// Use a UUID v4 or another unique value.
+	IdempotencyKey IdempotencyKeyHeader `json:"Idempotency-Key"`
+
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetRefundParams defines parameters for GetRefund.
+type GetRefundParams struct {
 	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
 	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
 }
@@ -305,6 +735,12 @@ type CreateAuthTokenJSONRequestBody = AuthTokenRequest
 // CreatePaymentIntentJSONRequestBody defines body for CreatePaymentIntent for application/json ContentType.
 type CreatePaymentIntentJSONRequestBody = CreatePaymentIntentRequest
 
+// ConfirmPaymentIntentJSONRequestBody defines body for ConfirmPaymentIntent for application/json ContentType.
+type ConfirmPaymentIntentJSONRequestBody = ConfirmPaymentIntentRequest
+
+// CreateRefundJSONRequestBody defines body for CreateRefund for application/json ContentType.
+type CreateRefundJSONRequestBody = CreateRefundRequest
+
 // CreateWebhookEndpointJSONRequestBody defines body for CreateWebhookEndpoint for application/json ContentType.
 type CreateWebhookEndpointJSONRequestBody = CreateWebhookEndpointRequest
 
@@ -319,9 +755,33 @@ type ServerInterface interface {
 	// Health check probe
 	// (GET /healthz)
 	GetHealthz(c *gin.Context)
-	// Create payment intent (Stub)
+	// List payment intents
+	// (GET /payment-intents)
+	ListPaymentIntents(c *gin.Context, params ListPaymentIntentsParams)
+	// Create a payment intent
 	// (POST /payment-intents)
 	CreatePaymentIntent(c *gin.Context, params CreatePaymentIntentParams)
+	// Retrieve a payment intent
+	// (GET /payment-intents/{id})
+	GetPaymentIntent(c *gin.Context, id PaymentIntentId, params GetPaymentIntentParams)
+	// Cancel an uncaptured payment intent
+	// (POST /payment-intents/{id}/cancel)
+	CancelPaymentIntent(c *gin.Context, id PaymentIntentId, params CancelPaymentIntentParams)
+	// Capture an authorized payment intent
+	// (POST /payment-intents/{id}/capture)
+	CapturePaymentIntent(c *gin.Context, id PaymentIntentId, params CapturePaymentIntentParams)
+	// Confirm and authorize a payment intent
+	// (POST /payment-intents/{id}/confirm)
+	ConfirmPaymentIntent(c *gin.Context, id PaymentIntentId, params ConfirmPaymentIntentParams)
+	// List refunds
+	// (GET /refunds)
+	ListRefunds(c *gin.Context, params ListRefundsParams)
+	// Create a full or partial refund
+	// (POST /refunds)
+	CreateRefund(c *gin.Context, params CreateRefundParams)
+	// Retrieve a refund
+	// (GET /refunds/{id})
+	GetRefund(c *gin.Context, id RefundId, params GetRefundParams)
 	// List webhook endpoints
 	// (GET /webhook-endpoints)
 	ListWebhookEndpoints(c *gin.Context, params ListWebhookEndpointsParams)
@@ -403,6 +863,89 @@ func (siw *ServerInterfaceWrapper) GetHealthz(c *gin.Context) {
 	siw.Handler.GetHealthz(c)
 }
 
+// ListPaymentIntents operation middleware
+func (siw *ServerInterfaceWrapper) ListPaymentIntents(c *gin.Context) {
+
+	var err error
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPaymentIntentsParams
+
+	// ------------- Optional query parameter "starting_after" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "starting_after", c.Request.URL.Query(), &params.StartingAfter)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter starting_after: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "ending_before" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "ending_before", c.Request.URL.Query(), &params.EndingBefore)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter ending_before: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", c.Request.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "customer_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "customer_id", c.Request.URL.Query(), &params.CustomerId)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter customer_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", c.Request.URL.Query(), &params.Status)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter status: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPaymentIntents(c, params)
+}
+
 // CreatePaymentIntent operation middleware
 func (siw *ServerInterfaceWrapper) CreatePaymentIntent(c *gin.Context) {
 
@@ -417,7 +960,7 @@ func (siw *ServerInterfaceWrapper) CreatePaymentIntent(c *gin.Context) {
 
 	headers := c.Request.Header
 
-	// ------------- Optional header parameter "Idempotency-Key" -------------
+	// ------------- Required header parameter "Idempotency-Key" -------------
 	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
 		var IdempotencyKey IdempotencyKeyHeader
 		n := len(valueList)
@@ -426,14 +969,17 @@ func (siw *ServerInterfaceWrapper) CreatePaymentIntent(c *gin.Context) {
 			return
 		}
 
-		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
 		if err != nil {
 			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
 			return
 		}
 
-		params.IdempotencyKey = &IdempotencyKey
+		params.IdempotencyKey = IdempotencyKey
 
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter Idempotency-Key is required, but not found"), http.StatusBadRequest)
+		return
 	}
 
 	// ------------- Optional header parameter "X-Request-Id" -------------
@@ -463,6 +1009,414 @@ func (siw *ServerInterfaceWrapper) CreatePaymentIntent(c *gin.Context) {
 	}
 
 	siw.Handler.CreatePaymentIntent(c, params)
+}
+
+// GetPaymentIntent operation middleware
+func (siw *ServerInterfaceWrapper) GetPaymentIntent(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id PaymentIntentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPaymentIntentParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPaymentIntent(c, id, params)
+}
+
+// CancelPaymentIntent operation middleware
+func (siw *ServerInterfaceWrapper) CancelPaymentIntent(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id PaymentIntentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelPaymentIntentParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CancelPaymentIntent(c, id, params)
+}
+
+// CapturePaymentIntent operation middleware
+func (siw *ServerInterfaceWrapper) CapturePaymentIntent(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id PaymentIntentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CapturePaymentIntentParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CapturePaymentIntent(c, id, params)
+}
+
+// ConfirmPaymentIntent operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmPaymentIntent(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id PaymentIntentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmPaymentIntentParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ConfirmPaymentIntent(c, id, params)
+}
+
+// ListRefunds operation middleware
+func (siw *ServerInterfaceWrapper) ListRefunds(c *gin.Context) {
+
+	var err error
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRefundsParams
+
+	// ------------- Optional query parameter "starting_after" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "starting_after", c.Request.URL.Query(), &params.StartingAfter)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter starting_after: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "ending_before" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "ending_before", c.Request.URL.Query(), &params.EndingBefore)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter ending_before: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", c.Request.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "payment_intent_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "payment_intent_id", c.Request.URL.Query(), &params.PaymentIntentId)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter payment_intent_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", c.Request.URL.Query(), &params.Status)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter status: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListRefunds(c, params)
+}
+
+// CreateRefund operation middleware
+func (siw *ServerInterfaceWrapper) CreateRefund(c *gin.Context) {
+
+	var err error
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRefundParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKeyHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter Idempotency-Key is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateRefund(c, params)
+}
+
+// GetRefund operation middleware
+func (siw *ServerInterfaceWrapper) GetRefund(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id RefundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRefundParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetRefund(c, id, params)
 }
 
 // ListWebhookEndpoints operation middleware
@@ -788,13 +1742,63 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.POST(options.BaseURL+"/auth/tokens", wrapper.CreateAuthToken)
 	router.GET(options.BaseURL+"/healthz", wrapper.GetHealthz)
+	router.GET(options.BaseURL+"/payment-intents", wrapper.ListPaymentIntents)
 	router.POST(options.BaseURL+"/payment-intents", wrapper.CreatePaymentIntent)
+	router.GET(options.BaseURL+"/payment-intents/:id", wrapper.GetPaymentIntent)
+	router.POST(options.BaseURL+"/payment-intents/:id/cancel", wrapper.CancelPaymentIntent)
+	router.POST(options.BaseURL+"/payment-intents/:id/capture", wrapper.CapturePaymentIntent)
+	router.POST(options.BaseURL+"/payment-intents/:id/confirm", wrapper.ConfirmPaymentIntent)
+	router.GET(options.BaseURL+"/refunds", wrapper.ListRefunds)
+	router.POST(options.BaseURL+"/refunds", wrapper.CreateRefund)
+	router.GET(options.BaseURL+"/refunds/:id", wrapper.GetRefund)
 	router.GET(options.BaseURL+"/webhook-endpoints", wrapper.ListWebhookEndpoints)
 	router.POST(options.BaseURL+"/webhook-endpoints", wrapper.CreateWebhookEndpoint)
 	router.DELETE(options.BaseURL+"/webhook-endpoints/:id", wrapper.DeleteWebhookEndpoint)
 	router.GET(options.BaseURL+"/webhook-endpoints/:id", wrapper.GetWebhookEndpoint)
 	router.PATCH(options.BaseURL+"/webhook-endpoints/:id", wrapper.UpdateWebhookEndpoint)
 	router.POST(options.BaseURL+"/webhook-endpoints/:id/rotate-secret", wrapper.RotateWebhookSecret)
+}
+
+type ConfirmInvalidRequestApplicationProblemPlusJSONResponse ProblemDocument
+
+type CreateInvalidRequestApplicationProblemPlusJSONResponse ProblemDocument
+
+type ForbiddenApplicationProblemPlusJSONResponse ProblemDocument
+
+type IdempotencyConflictApplicationProblemPlusJSONResponse ProblemDocument
+
+type InvalidPaginationApplicationProblemPlusJSONResponse ProblemDocument
+
+type InvalidPathParameterApplicationProblemPlusJSONResponse ProblemDocument
+
+type NotFoundApplicationProblemPlusJSONResponse ProblemDocument
+
+type PaymentDeclinedApplicationProblemPlusJSONResponse ProblemDocument
+
+type ProcessorUnavailableApplicationProblemPlusJSONResponse ProblemDocument
+
+type RateLimitedResponseHeaders struct {
+	RetryAfter int
+}
+type RateLimitedApplicationProblemPlusJSONResponse struct {
+	Body ProblemDocument
+
+	Headers RateLimitedResponseHeaders
+}
+
+type RefundConflictApplicationProblemPlusJSONResponse ProblemDocument
+
+type ServerErrorApplicationProblemPlusJSONResponse ProblemDocument
+
+type StateConflictApplicationProblemPlusJSONResponse ProblemDocument
+
+type UnauthorizedResponseHeaders struct {
+	WWWAuthenticate string
+}
+type UnauthorizedApplicationProblemPlusJSONResponse struct {
+	Body ProblemDocument
+
+	Headers UnauthorizedResponseHeaders
 }
 
 type CreateAuthTokenRequestObject struct {
@@ -876,6 +1880,81 @@ func (response GetHealthz503ApplicationProblemPlusJSONResponse) VisitGetHealthzR
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListPaymentIntentsRequestObject struct {
+	Params ListPaymentIntentsParams
+}
+
+type ListPaymentIntentsResponseObject interface {
+	VisitListPaymentIntentsResponse(w http.ResponseWriter) error
+}
+
+type ListPaymentIntents200JSONResponse PaymentIntentList
+
+func (response ListPaymentIntents200JSONResponse) VisitListPaymentIntentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPaymentIntents400ApplicationProblemPlusJSONResponse struct {
+	InvalidPaginationApplicationProblemPlusJSONResponse
+}
+
+func (response ListPaymentIntents400ApplicationProblemPlusJSONResponse) VisitListPaymentIntentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPaymentIntents401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListPaymentIntents401ApplicationProblemPlusJSONResponse) VisitListPaymentIntentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListPaymentIntents403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListPaymentIntents403ApplicationProblemPlusJSONResponse) VisitListPaymentIntentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPaymentIntents429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response ListPaymentIntents429ApplicationProblemPlusJSONResponse) VisitListPaymentIntentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListPaymentIntentsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response ListPaymentIntentsdefaultApplicationProblemPlusJSONResponse) VisitListPaymentIntentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type CreatePaymentIntentRequestObject struct {
 	Params CreatePaymentIntentParams
 	Body   *CreatePaymentIntentJSONRequestBody
@@ -894,7 +1973,9 @@ func (response CreatePaymentIntent201JSONResponse) VisitCreatePaymentIntentRespo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreatePaymentIntent400ApplicationProblemPlusJSONResponse ProblemDocument
+type CreatePaymentIntent400ApplicationProblemPlusJSONResponse struct {
+	CreateInvalidRequestApplicationProblemPlusJSONResponse
+}
 
 func (response CreatePaymentIntent400ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
@@ -903,7 +1984,43 @@ func (response CreatePaymentIntent400ApplicationProblemPlusJSONResponse) VisitCr
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreatePaymentIntent409ApplicationProblemPlusJSONResponse ProblemDocument
+type CreatePaymentIntent401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePaymentIntent401ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreatePaymentIntent403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePaymentIntent403ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreatePaymentIntent404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePaymentIntent404ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreatePaymentIntent409ApplicationProblemPlusJSONResponse struct {
+	IdempotencyConflictApplicationProblemPlusJSONResponse
+}
 
 func (response CreatePaymentIntent409ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
@@ -912,13 +2029,714 @@ func (response CreatePaymentIntent409ApplicationProblemPlusJSONResponse) VisitCr
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreatePaymentIntent501ApplicationProblemPlusJSONResponse ProblemDocument
+type CreatePaymentIntent429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
 
-func (response CreatePaymentIntent501ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+func (response CreatePaymentIntent429ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(501)
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreatePaymentIntentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response CreatePaymentIntentdefaultApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetPaymentIntentRequestObject struct {
+	Id     PaymentIntentId `json:"id"`
+	Params GetPaymentIntentParams
+}
+
+type GetPaymentIntentResponseObject interface {
+	VisitGetPaymentIntentResponse(w http.ResponseWriter) error
+}
+
+type GetPaymentIntent200JSONResponse PaymentIntentResponse
+
+func (response GetPaymentIntent200JSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPaymentIntent400ApplicationProblemPlusJSONResponse struct {
+	InvalidPathParameterApplicationProblemPlusJSONResponse
+}
+
+func (response GetPaymentIntent400ApplicationProblemPlusJSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPaymentIntent401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetPaymentIntent401ApplicationProblemPlusJSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetPaymentIntent403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetPaymentIntent403ApplicationProblemPlusJSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPaymentIntent404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetPaymentIntent404ApplicationProblemPlusJSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPaymentIntent429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response GetPaymentIntent429ApplicationProblemPlusJSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetPaymentIntentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response GetPaymentIntentdefaultApplicationProblemPlusJSONResponse) VisitGetPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CancelPaymentIntentRequestObject struct {
+	Id     PaymentIntentId `json:"id"`
+	Params CancelPaymentIntentParams
+}
+
+type CancelPaymentIntentResponseObject interface {
+	VisitCancelPaymentIntentResponse(w http.ResponseWriter) error
+}
+
+type CancelPaymentIntent200JSONResponse PaymentIntentResponse
+
+func (response CancelPaymentIntent200JSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CancelPaymentIntent400ApplicationProblemPlusJSONResponse struct {
+	InvalidPathParameterApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent400ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CancelPaymentIntent401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent401ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CancelPaymentIntent403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent403ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CancelPaymentIntent404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent404ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CancelPaymentIntent409ApplicationProblemPlusJSONResponse struct {
+	StateConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent409ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CancelPaymentIntent429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent429ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CancelPaymentIntent503ApplicationProblemPlusJSONResponse struct {
+	ProcessorUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response CancelPaymentIntent503ApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CancelPaymentIntentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response CancelPaymentIntentdefaultApplicationProblemPlusJSONResponse) VisitCancelPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CapturePaymentIntentRequestObject struct {
+	Id     PaymentIntentId `json:"id"`
+	Params CapturePaymentIntentParams
+}
+
+type CapturePaymentIntentResponseObject interface {
+	VisitCapturePaymentIntentResponse(w http.ResponseWriter) error
+}
+
+type CapturePaymentIntent200JSONResponse PaymentIntentResponse
+
+func (response CapturePaymentIntent200JSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CapturePaymentIntent400ApplicationProblemPlusJSONResponse struct {
+	InvalidPathParameterApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent400ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CapturePaymentIntent401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent401ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CapturePaymentIntent403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent403ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CapturePaymentIntent404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent404ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CapturePaymentIntent409ApplicationProblemPlusJSONResponse struct {
+	StateConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent409ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CapturePaymentIntent429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent429ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CapturePaymentIntent503ApplicationProblemPlusJSONResponse struct {
+	ProcessorUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response CapturePaymentIntent503ApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CapturePaymentIntentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response CapturePaymentIntentdefaultApplicationProblemPlusJSONResponse) VisitCapturePaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ConfirmPaymentIntentRequestObject struct {
+	Id     PaymentIntentId `json:"id"`
+	Params ConfirmPaymentIntentParams
+	Body   *ConfirmPaymentIntentJSONRequestBody
+}
+
+type ConfirmPaymentIntentResponseObject interface {
+	VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error
+}
+
+type ConfirmPaymentIntent200JSONResponse PaymentIntentResponse
+
+func (response ConfirmPaymentIntent200JSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntent400ApplicationProblemPlusJSONResponse struct {
+	ConfirmInvalidRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent400ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntent401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent401ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ConfirmPaymentIntent402ApplicationProblemPlusJSONResponse struct {
+	PaymentDeclinedApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent402ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(402)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntent403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent403ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntent404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent404ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntent409ApplicationProblemPlusJSONResponse struct {
+	StateConflictApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent409ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntent429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent429ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ConfirmPaymentIntent503ApplicationProblemPlusJSONResponse struct {
+	ProcessorUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmPaymentIntent503ApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ConfirmPaymentIntentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response ConfirmPaymentIntentdefaultApplicationProblemPlusJSONResponse) VisitConfirmPaymentIntentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListRefundsRequestObject struct {
+	Params ListRefundsParams
+}
+
+type ListRefundsResponseObject interface {
+	VisitListRefundsResponse(w http.ResponseWriter) error
+}
+
+type ListRefunds200JSONResponse RefundList
+
+func (response ListRefunds200JSONResponse) VisitListRefundsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRefunds400ApplicationProblemPlusJSONResponse struct {
+	InvalidPaginationApplicationProblemPlusJSONResponse
+}
+
+func (response ListRefunds400ApplicationProblemPlusJSONResponse) VisitListRefundsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRefunds401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListRefunds401ApplicationProblemPlusJSONResponse) VisitListRefundsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListRefunds403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListRefunds403ApplicationProblemPlusJSONResponse) VisitListRefundsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRefunds429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response ListRefunds429ApplicationProblemPlusJSONResponse) VisitListRefundsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListRefundsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response ListRefundsdefaultApplicationProblemPlusJSONResponse) VisitListRefundsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateRefundRequestObject struct {
+	Params CreateRefundParams
+	Body   *CreateRefundJSONRequestBody
+}
+
+type CreateRefundResponseObject interface {
+	VisitCreateRefundResponse(w http.ResponseWriter) error
+}
+
+type CreateRefund201JSONResponse RefundResponse
+
+func (response CreateRefund201JSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRefund400ApplicationProblemPlusJSONResponse struct {
+	CreateInvalidRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund400ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRefund401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund401ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateRefund403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund403ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRefund404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund404ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRefund409ApplicationProblemPlusJSONResponse struct {
+	RefundConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund409ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRefund429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund429ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateRefunddefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response CreateRefunddefaultApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetRefundRequestObject struct {
+	Id     RefundId `json:"id"`
+	Params GetRefundParams
+}
+
+type GetRefundResponseObject interface {
+	VisitGetRefundResponse(w http.ResponseWriter) error
+}
+
+type GetRefund200JSONResponse RefundResponse
+
+func (response GetRefund200JSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRefund400ApplicationProblemPlusJSONResponse struct {
+	InvalidPathParameterApplicationProblemPlusJSONResponse
+}
+
+func (response GetRefund400ApplicationProblemPlusJSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRefund401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetRefund401ApplicationProblemPlusJSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("WWW-Authenticate", fmt.Sprint(response.Headers.WWWAuthenticate))
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetRefund403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetRefund403ApplicationProblemPlusJSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRefund404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetRefund404ApplicationProblemPlusJSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRefund429ApplicationProblemPlusJSONResponse struct {
+	RateLimitedApplicationProblemPlusJSONResponse
+}
+
+func (response GetRefund429ApplicationProblemPlusJSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetRefunddefaultApplicationProblemPlusJSONResponse struct {
+	Body       ProblemDocument
+	StatusCode int
+}
+
+func (response GetRefunddefaultApplicationProblemPlusJSONResponse) VisitGetRefundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type ListWebhookEndpointsRequestObject struct {
@@ -1261,9 +3079,33 @@ type StrictServerInterface interface {
 	// Health check probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
-	// Create payment intent (Stub)
+	// List payment intents
+	// (GET /payment-intents)
+	ListPaymentIntents(ctx context.Context, request ListPaymentIntentsRequestObject) (ListPaymentIntentsResponseObject, error)
+	// Create a payment intent
 	// (POST /payment-intents)
 	CreatePaymentIntent(ctx context.Context, request CreatePaymentIntentRequestObject) (CreatePaymentIntentResponseObject, error)
+	// Retrieve a payment intent
+	// (GET /payment-intents/{id})
+	GetPaymentIntent(ctx context.Context, request GetPaymentIntentRequestObject) (GetPaymentIntentResponseObject, error)
+	// Cancel an uncaptured payment intent
+	// (POST /payment-intents/{id}/cancel)
+	CancelPaymentIntent(ctx context.Context, request CancelPaymentIntentRequestObject) (CancelPaymentIntentResponseObject, error)
+	// Capture an authorized payment intent
+	// (POST /payment-intents/{id}/capture)
+	CapturePaymentIntent(ctx context.Context, request CapturePaymentIntentRequestObject) (CapturePaymentIntentResponseObject, error)
+	// Confirm and authorize a payment intent
+	// (POST /payment-intents/{id}/confirm)
+	ConfirmPaymentIntent(ctx context.Context, request ConfirmPaymentIntentRequestObject) (ConfirmPaymentIntentResponseObject, error)
+	// List refunds
+	// (GET /refunds)
+	ListRefunds(ctx context.Context, request ListRefundsRequestObject) (ListRefundsResponseObject, error)
+	// Create a full or partial refund
+	// (POST /refunds)
+	CreateRefund(ctx context.Context, request CreateRefundRequestObject) (CreateRefundResponseObject, error)
+	// Retrieve a refund
+	// (GET /refunds/{id})
+	GetRefund(ctx context.Context, request GetRefundRequestObject) (GetRefundResponseObject, error)
 	// List webhook endpoints
 	// (GET /webhook-endpoints)
 	ListWebhookEndpoints(ctx context.Context, request ListWebhookEndpointsRequestObject) (ListWebhookEndpointsResponseObject, error)
@@ -1356,6 +3198,33 @@ func (sh *strictHandler) GetHealthz(ctx *gin.Context) {
 	}
 }
 
+// ListPaymentIntents operation middleware
+func (sh *strictHandler) ListPaymentIntents(ctx *gin.Context, params ListPaymentIntentsParams) {
+	var request ListPaymentIntentsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPaymentIntents(ctx, request.(ListPaymentIntentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPaymentIntents")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListPaymentIntentsResponseObject); ok {
+		if err := validResponse.VisitListPaymentIntentsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreatePaymentIntent operation middleware
 func (sh *strictHandler) CreatePaymentIntent(ctx *gin.Context, params CreatePaymentIntentParams) {
 	var request CreatePaymentIntentRequestObject
@@ -1384,6 +3253,216 @@ func (sh *strictHandler) CreatePaymentIntent(ctx *gin.Context, params CreatePaym
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(CreatePaymentIntentResponseObject); ok {
 		if err := validResponse.VisitCreatePaymentIntentResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPaymentIntent operation middleware
+func (sh *strictHandler) GetPaymentIntent(ctx *gin.Context, id PaymentIntentId, params GetPaymentIntentParams) {
+	var request GetPaymentIntentRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPaymentIntent(ctx, request.(GetPaymentIntentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPaymentIntent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetPaymentIntentResponseObject); ok {
+		if err := validResponse.VisitGetPaymentIntentResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelPaymentIntent operation middleware
+func (sh *strictHandler) CancelPaymentIntent(ctx *gin.Context, id PaymentIntentId, params CancelPaymentIntentParams) {
+	var request CancelPaymentIntentRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelPaymentIntent(ctx, request.(CancelPaymentIntentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelPaymentIntent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CancelPaymentIntentResponseObject); ok {
+		if err := validResponse.VisitCancelPaymentIntentResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CapturePaymentIntent operation middleware
+func (sh *strictHandler) CapturePaymentIntent(ctx *gin.Context, id PaymentIntentId, params CapturePaymentIntentParams) {
+	var request CapturePaymentIntentRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CapturePaymentIntent(ctx, request.(CapturePaymentIntentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CapturePaymentIntent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CapturePaymentIntentResponseObject); ok {
+		if err := validResponse.VisitCapturePaymentIntentResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmPaymentIntent operation middleware
+func (sh *strictHandler) ConfirmPaymentIntent(ctx *gin.Context, id PaymentIntentId, params ConfirmPaymentIntentParams) {
+	var request ConfirmPaymentIntentRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body ConfirmPaymentIntentJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmPaymentIntent(ctx, request.(ConfirmPaymentIntentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmPaymentIntent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ConfirmPaymentIntentResponseObject); ok {
+		if err := validResponse.VisitConfirmPaymentIntentResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRefunds operation middleware
+func (sh *strictHandler) ListRefunds(ctx *gin.Context, params ListRefundsParams) {
+	var request ListRefundsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRefunds(ctx, request.(ListRefundsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRefunds")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListRefundsResponseObject); ok {
+		if err := validResponse.VisitListRefundsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRefund operation middleware
+func (sh *strictHandler) CreateRefund(ctx *gin.Context, params CreateRefundParams) {
+	var request CreateRefundRequestObject
+
+	request.Params = params
+
+	var body CreateRefundJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRefund(ctx, request.(CreateRefundRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRefund")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CreateRefundResponseObject); ok {
+		if err := validResponse.VisitCreateRefundResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRefund operation middleware
+func (sh *strictHandler) GetRefund(ctx *gin.Context, id RefundId, params GetRefundParams) {
+	var request GetRefundRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRefund(ctx, request.(GetRefundRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRefund")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetRefundResponseObject); ok {
+		if err := validResponse.VisitGetRefundResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1576,81 +3655,251 @@ func (sh *strictHandler) RotateWebhookSecret(ctx *gin.Context, id string, params
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
