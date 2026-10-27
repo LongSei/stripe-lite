@@ -1,3 +1,5 @@
+//go:build integration
+
 package payments
 
 import (
@@ -16,7 +18,7 @@ func fixture(t *testing.T) (*Service, string) {
 	t.Helper()
 	uri := os.Getenv("PAYMENTS_TEST_DATABASE_URL")
 	if uri == "" {
-		t.Skip("use make test for PostgreSQL integration tests")
+		t.Fatal("PAYMENTS_TEST_DATABASE_URL is required; use make test-integration")
 	}
 	db, err := pgxpool.New(context.Background(), uri)
 	if err != nil {

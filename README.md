@@ -56,7 +56,8 @@ stripe-lite/
 
 - **Go**: Version `1.25` or newer
 - **Make**: Standard GNU `make`
-- **Docker, Python 3, Bash & OpenSSL**: For the PostgreSQL and HTTP verification suites
+- **Bash, curl, jq & OpenSSL**: For the HTTP verification suite
+- **PostgreSQL 16 or Docker**: For `make test-integration` and `make verify`. Docker is optional when test database URLs are supplied.
 - **Node.js & npx**: Required to bundle and lint the OpenAPI specification
 
 ---
@@ -112,7 +113,8 @@ Once the server is running, access:
 | `make lint-redocly` | Runs strict Redocly style & security audit via localized `npx`. |
 | `make build` | Compiles optimized, stripped server binary to `./bin/server`. |
 | `make run` | Builds binary and boots the HTTP gateway. |
-| `make test` | Runs unit, contract, and PostgreSQL integration tests with the race detector. |
+| `make test` | Runs unit and contract tests with the race detector; no database or Docker is required. |
+| `make test-integration` | Runs PostgreSQL integration tests and unit tests. Uses disposable Docker PostgreSQL unless test database URLs are supplied. |
 | `make verify` | Runs all nine Payments operations against an isolated database and server. |
 | `make clean` | Removes `./bin/` artifacts and generated code. |
 
@@ -134,7 +136,7 @@ To work concurrently on separate Git branches without merge conflicts:
 ## Payments
 
 See [the Payments guide](api/payments/README.md) for state rules, ER diagrams, migrations, credentials, and development configuration.
-The build composes the Payments paths without changing the shared root specification.
+The root `api/openapi.yaml` declares the Payments paths and the `/v1` prefix directly.
 The real server uses `/v1`. Auth and Webhooks remain assigned to their domain owners.
 Payment processing uses an explicit development adapter in the verification suite.
 No real processor adapter is included in Sprint 1.

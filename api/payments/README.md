@@ -17,8 +17,8 @@ Their references make the operations available at the paths listed below.
 
 ## Integration
 
-Keep the existing `/payment-intents` reference in the project root specification.
-The owner of that specification must add these entries under `paths`:
+The root specification `api/openapi.yaml` references all Payments path items directly.
+It uses `/v1` as the server prefix. These entries connect the additional path items:
 
 ```yaml
 /payment-intents/{id}:
@@ -35,9 +35,8 @@ The owner of that specification must add these entries under `paths`:
   $ref: "./payments/refunds.yaml#/x-retrieve"
 ```
 
-The build now creates an integration entrypoint with these references and the `/v1` prefix.
-The source root specification stays unchanged.
-The shared root owner can add these references during the final team integration.
+The build bundles `api/openapi.yaml` directly.
+The root file is the common entrypoint for lint, code generation, and documentation.
 The new contract replaces the old stub-only 501 response.
 
 ## Contract rules
@@ -166,8 +165,8 @@ This migration does not define account records or processor integration.
 
 ## Runtime and verification
 
-The build uses `cmd/payment-spec` to add the Payments paths to a generated entrypoint.
-It writes `dist/openapi.payments.yaml` and does not edit `api/openapi.yaml`.
+The build reads the path references and `/v1` prefix directly from `api/openapi.yaml`.
+It writes the bundled specification to `dist/openapi.bundled.yaml`.
 The bundled specification, generated server, and Swagger UI use `/v1`.
 The generated server implements all nine Payments operations.
 Identity and Webhooks retain their existing handlers.
@@ -256,14 +255,24 @@ make lint-spec
 make lint-redocly
 make codegen
 make test
+make test-integration
 make verify
 ```
 
-`make test` and `make verify` require Docker, PostgreSQL 16, Python 3, and OpenSSL.
-They create a disposable PostgreSQL container and a restricted application login.
-They apply both migrations and remove the container when the checks finish.
-`make test` runs Go tests with the race detector.
+`make test` runs unit and contract tests with the race detector. It does not need Docker or PostgreSQL.
+Database tests use the `integration` build tag and run with `make test-integration`.
+The alias `make test-intergration` runs the same target.
+This target runs the unit tests and PostgreSQL tests together.
+It creates a disposable PostgreSQL 16 container and a restricted application login.
+It applies both migrations and removes the container when the checks finish.
+To use an existing disposable database, set both `PAYMENTS_TEST_DATABASE_URL` and `PAYMENTS_TEST_ADMIN_URL`.
+The admin connection is needed only for schema and permission checks.
+
 `make verify` starts the real server and checks all nine operations over HTTP.
-It also checks the asynchronous worker, original response replay, and exact int64 amounts.
-The HTTP tests validate response bodies and headers against the generated OpenAPI contract.
+The script uses Bash, curl, jq, and OpenSSL. It does not use Python.
+It creates a disposable PostgreSQL container unless `PAYMENTS_TEST_DATABASE_URL` is set.
+That URL must point to an empty test database with both migrations applied.
+Set `VERIFY_PORT` to choose a server port. Otherwise, the script chooses a random high port.
+It checks the asynchronous worker, original response replay, and exact int64 amounts.
+The integration tests validate response bodies and headers against the OpenAPI contract.
 The database tests check concurrent refunds, capture versus cancel, and immutable ledger permissions.
