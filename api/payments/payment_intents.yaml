@@ -131,155 +131,19 @@ post:
                 created_at: '2026-10-26T10:00:00Z'
                 updated_at: '2026-10-26T10:00:00Z'
     '400':
-      description: >-
-        The request body or the required `Idempotency-Key` header is invalid. A required field or
-        header can also be missing. The API creates no resource.
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            invalid_amount:
-              summary: Invalid amount
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                title: Bad Request
-                status: 400
-                detail: amount must be a positive integer in the smallest currency unit.
-                invalid_params:
-                  - name: amount
-                    reason: Must be greater than 0
-            missing_idempotency_key:
-              summary: Missing idempotency key
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                title: Bad Request
-                status: 400
-                detail: Idempotency-Key is required for payment intent and refund creation.
-                invalid_params:
-                  - name: Idempotency-Key
-                    reason: Must contain 1 to 255 characters
+      $ref: ./payment_intents.yaml#/x-responses/CreateInvalidRequest
     '401':
-      description: 'The request has missing, expired, or invalid credentials.'
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            authentication_required:
-              summary: Authentication required
-              value:
-                type: 'https://api.stripe-lite.internal/errors/unauthorized'
-                title: Unauthorized
-                status: 401
-                detail: Provide a valid bearer token or X-API-Key.
-      headers:
-        WWW-Authenticate:
-          description: >-
-            This header gives the bearer challenge. Every 401 response contains this header. This
-            rule also applies when the API rejects an API key.
-          required: true
-          schema:
-            type: string
-          example: Bearer realm="stripe-lite"
+      $ref: ./payment_intents.yaml#/x-responses/Unauthorized
     '403':
-      description: The credentials are valid but do not have the required scope. The state does not change.
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            example:
-              summary: Forbidden
-              value:
-                type: 'https://api.stripe-lite.internal/errors/forbidden'
-                title: Forbidden
-                status: 403
-                detail: The authenticated credential lacks the required permission for this operation.
+      $ref: ./payment_intents.yaml#/x-responses/Forbidden
     '404':
-      description: 'The resource does not exist, or the authenticated merchant cannot access it.'
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            resource_not_found:
-              summary: Resource not found
-              value:
-                type: 'https://api.stripe-lite.internal/errors/not-found'
-                title: Not Found
-                status: 404
-                detail: 'The requested payment intent, refund, customer or payment method was not found.'
+      $ref: ./payment_intents.yaml#/x-responses/NotFound
     '409':
-      description: >-
-        The key is bound to another payload, or the original request is still in progress. The API
-        creates no resource.
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            idempotency_conflict:
-              summary: Idempotency conflict
-              value:
-                type: 'https://api.stripe-lite.internal/errors/idempotency-conflict'
-                title: Conflict
-                status: 409
-                detail: This idempotency key is already bound to a different request payload.
-            request_in_progress:
-              summary: Request in progress
-              value:
-                type: 'https://api.stripe-lite.internal/errors/request-in-progress'
-                title: Conflict
-                status: 409
-                detail: >-
-                  A request with this idempotency key is still being processed. Retry with the same
-                  key and payload.
+      $ref: ./payment_intents.yaml#/x-responses/IdempotencyConflict
     '429':
-      description: >-
-        The request exceeds the quota for the authenticated merchant. The API does not perform the
-        operation. Wait for the time in `Retry-After` before you retry.
-      headers:
-        Retry-After:
-          description: >-
-            This header gives the required wait time in whole seconds. All credentials for one
-            merchant use the same quota. The quota can change with the configuration.
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-          example: 30
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            example:
-              summary: Too Many Requests
-              value:
-                type: 'https://api.stripe-lite.internal/errors/rate-limited'
-                title: Too Many Requests
-                status: 429
-                detail: The request quota for this merchant has been exceeded.
+      $ref: ./payment_intents.yaml#/x-responses/RateLimited
     default:
-      description: >-
-        The API reports an unexpected server error. The problem status equals the actual HTTP
-        status. Read the payment or refund state before you retry. For a creation retry, use the
-        original `Idempotency-Key`.
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            example:
-              summary: Internal Server Error
-              value:
-                type: 'https://api.stripe-lite.internal/errors/internal-server-error'
-                title: Internal Server Error
-                status: 500
-                detail: >-
-                  An unexpected error occurred. Use the request correlation ID when contacting
-                  support.
+      $ref: ./payment_intents.yaml#/x-responses/ServerError
   requestBody:
     required: true
     content:
@@ -413,60 +277,15 @@ get:
                 has_more: false
                 url: /v1/payment-intents
     '400':
-      description: 'A cursor, filter, or limit is invalid. The API does not perform the list operation.'
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            invalid_pagination:
-              summary: Invalid pagination
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                title: Bad Request
-                status: 400
-                detail: starting_after and ending_before cannot be supplied together.
-                invalid_params:
-                  - name: starting_after
-                    reason: Mutually exclusive with ending_before
-            invalid_cursor:
-              summary: Invalid cursor
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                title: Bad Request
-                status: 400
-                detail: The cursor is invalid or unavailable for this collection.
-                invalid_params:
-                  - name: starting_after
-                    reason: Must identify an accessible object in this collection
-            invalid_limit:
-              summary: Limit outside supported range
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                title: Bad Request
-                status: 400
-                detail: limit must be an integer between 1 and 100.
-                invalid_params:
-                  - name: limit
-                    reason: Must be between 1 and 100
-            invalid_filter:
-              summary: Unknown status filter
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                title: Bad Request
-                status: 400
-                detail: The status filter is not recognized for this collection.
-                invalid_params:
-                  - name: status
-                    reason: Must be one of the documented status values
+      $ref: ./payment_intents.yaml#/x-responses/InvalidPagination
     '401':
-      $ref: ./payment_intents.yaml#/post/responses/401
+      $ref: ./payment_intents.yaml#/x-responses/Unauthorized
     '403':
-      $ref: ./payment_intents.yaml#/post/responses/403
+      $ref: ./payment_intents.yaml#/x-responses/Forbidden
     '429':
-      $ref: ./payment_intents.yaml#/post/responses/429
+      $ref: ./payment_intents.yaml#/x-responses/RateLimited
     default:
-      $ref: ./payment_intents.yaml#/post/responses/default
+      $ref: ./payment_intents.yaml#/x-responses/ServerError
 x-retrieve:
   get:
     operationId: getPaymentIntent
@@ -524,34 +343,17 @@ x-retrieve:
                   created_at: '2026-10-26T10:00:00Z'
                   updated_at: '2026-10-26T10:00:00Z'
       '400':
-        description: >-
-          The resource ID or another request parameter has an invalid format. The request can also
-          contain an unexpected body.
-        content:
-          application/problem+json:
-            schema:
-              $ref: ../components/problem.yaml#/ProblemDocument
-            examples:
-              invalid_id:
-                summary: Malformed resource identifier
-                value:
-                  type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                  title: Bad Request
-                  status: 400
-                  detail: The path id does not match the expected resource identifier format.
-                  invalid_params:
-                    - name: id
-                      reason: Must match the resource ID pattern
+        $ref: ./payment_intents.yaml#/x-responses/InvalidPathParameter
       '401':
-        $ref: ./payment_intents.yaml#/post/responses/401
+        $ref: ./payment_intents.yaml#/x-responses/Unauthorized
       '403':
-        $ref: ./payment_intents.yaml#/post/responses/403
+        $ref: ./payment_intents.yaml#/x-responses/Forbidden
       '404':
-        $ref: ./payment_intents.yaml#/post/responses/404
+        $ref: ./payment_intents.yaml#/x-responses/NotFound
       '429':
-        $ref: ./payment_intents.yaml#/post/responses/429
+        $ref: ./payment_intents.yaml#/x-responses/RateLimited
       default:
-        $ref: ./payment_intents.yaml#/post/responses/default
+        $ref: ./payment_intents.yaml#/x-responses/ServerError
 x-confirm:
   post:
     operationId: confirmPaymentIntent
@@ -678,84 +480,23 @@ x-confirm:
                   created_at: '2026-10-26T10:00:00Z'
                   updated_at: '2026-10-26T10:00:00Z'
       '400':
-        description: >-
-          The request contains invalid JSON or payment method input. The previous payment state does
-          not change.
-        content:
-          application/problem+json:
-            schema:
-              $ref: ../components/problem.yaml#/ProblemDocument
-            examples:
-              missing_payment_method:
-                summary: Missing payment method
-                value:
-                  type: 'https://api.stripe-lite.internal/errors/invalid-request'
-                  title: Bad Request
-                  status: 400
-                  detail: A payment_method_id is required when the intent has no stored payment method.
-                  invalid_params:
-                    - name: payment_method_id
-                      reason: Required in requires_payment_method
+        $ref: ./payment_intents.yaml#/x-responses/ConfirmInvalidRequest
       '401':
-        $ref: ./payment_intents.yaml#/post/responses/401
+        $ref: ./payment_intents.yaml#/x-responses/Unauthorized
       '402':
-        description: >-
-          The processor declined authorization. The API sets `status` to `requires_payment_method`.
-          The API clears the payment method. The API does not capture funds.
-        content:
-          application/problem+json:
-            schema:
-              $ref: ../components/problem.yaml#/ProblemDocument
-            examples:
-              payment_declined:
-                summary: Payment declined
-                value:
-                  type: 'https://api.stripe-lite.internal/errors/payment-declined'
-                  title: Payment Declined
-                  status: 402
-                  detail: Authorization was declined. Supply another payment method and confirm again.
+        $ref: ./payment_intents.yaml#/x-responses/PaymentDeclined
       '403':
-        $ref: ./payment_intents.yaml#/post/responses/403
+        $ref: ./payment_intents.yaml#/x-responses/Forbidden
       '404':
-        $ref: ./payment_intents.yaml#/post/responses/404
+        $ref: ./payment_intents.yaml#/x-responses/NotFound
       '409':
-        description: >-
-          The current state does not permit the operation. The API performs no new financial
-          operation.
-        content:
-          application/problem+json:
-            schema:
-              $ref: ../components/problem.yaml#/ProblemDocument
-            examples:
-              invalid_state:
-                summary: Invalid state
-                value:
-                  type: 'https://api.stripe-lite.internal/errors/invalid-state'
-                  title: Conflict
-                  status: 409
-                  detail: The requested operation is not allowed in the current resource state.
+        $ref: ./payment_intents.yaml#/x-responses/StateConflict
       '429':
-        $ref: ./payment_intents.yaml#/post/responses/429
+        $ref: ./payment_intents.yaml#/x-responses/RateLimited
       '503':
-        description: >-
-          The API confirmed that the processor failure had no financial effect. The previous payment
-          state does not change.
-        content:
-          application/problem+json:
-            schema:
-              $ref: ../components/problem.yaml#/ProblemDocument
-            examples:
-              processor_unavailable:
-                summary: Processor unavailable
-                value:
-                  type: 'https://api.stripe-lite.internal/errors/processor-unavailable'
-                  title: Service Unavailable
-                  status: 503
-                  detail: >-
-                    The payment processor is temporarily unavailable. Retrieve the intent before
-                    retrying.
+        $ref: ./payment_intents.yaml#/x-responses/ProcessorUnavailable
       default:
-        $ref: ./payment_intents.yaml#/post/responses/default
+        $ref: ./payment_intents.yaml#/x-responses/ServerError
     requestBody:
       required: true
       content:
@@ -841,21 +582,21 @@ x-capture:
                   created_at: '2026-10-26T10:00:00Z'
                   updated_at: '2026-10-26T10:00:00Z'
       '400':
-        $ref: ./payment_intents.yaml#/x-retrieve/get/responses/400
+        $ref: ./payment_intents.yaml#/x-responses/InvalidPathParameter
       '401':
-        $ref: ./payment_intents.yaml#/post/responses/401
+        $ref: ./payment_intents.yaml#/x-responses/Unauthorized
       '403':
-        $ref: ./payment_intents.yaml#/post/responses/403
+        $ref: ./payment_intents.yaml#/x-responses/Forbidden
       '404':
-        $ref: ./payment_intents.yaml#/post/responses/404
+        $ref: ./payment_intents.yaml#/x-responses/NotFound
       '409':
-        $ref: ./payment_intents.yaml#/x-confirm/post/responses/409
+        $ref: ./payment_intents.yaml#/x-responses/StateConflict
       '429':
-        $ref: ./payment_intents.yaml#/post/responses/429
+        $ref: ./payment_intents.yaml#/x-responses/RateLimited
       '503':
-        $ref: ./payment_intents.yaml#/x-confirm/post/responses/503
+        $ref: ./payment_intents.yaml#/x-responses/ProcessorUnavailable
       default:
-        $ref: ./payment_intents.yaml#/post/responses/default
+        $ref: ./payment_intents.yaml#/x-responses/ServerError
 x-cancel:
   post:
     operationId: cancelPaymentIntent
@@ -951,18 +692,343 @@ x-cancel:
                   created_at: '2026-10-26T10:00:00Z'
                   updated_at: '2026-10-26T10:00:00Z'
       '400':
-        $ref: ./payment_intents.yaml#/x-retrieve/get/responses/400
+        $ref: ./payment_intents.yaml#/x-responses/InvalidPathParameter
       '401':
-        $ref: ./payment_intents.yaml#/post/responses/401
+        $ref: ./payment_intents.yaml#/x-responses/Unauthorized
       '403':
-        $ref: ./payment_intents.yaml#/post/responses/403
+        $ref: ./payment_intents.yaml#/x-responses/Forbidden
       '404':
-        $ref: ./payment_intents.yaml#/post/responses/404
+        $ref: ./payment_intents.yaml#/x-responses/NotFound
       '409':
-        $ref: ./payment_intents.yaml#/x-confirm/post/responses/409
+        $ref: ./payment_intents.yaml#/x-responses/StateConflict
       '429':
-        $ref: ./payment_intents.yaml#/post/responses/429
+        $ref: ./payment_intents.yaml#/x-responses/RateLimited
       '503':
-        $ref: ./payment_intents.yaml#/x-confirm/post/responses/503
+        $ref: ./payment_intents.yaml#/x-responses/ProcessorUnavailable
       default:
-        $ref: ./payment_intents.yaml#/post/responses/default
+        $ref: ./payment_intents.yaml#/x-responses/ServerError
+x-responses:
+  CreateInvalidRequest:
+    description: >-
+      The request body or the required `Idempotency-Key` header is invalid. A required field or
+      header can also be missing. The API creates no resource.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          invalid_amount:
+            summary: Invalid amount
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: amount must be a positive integer in the smallest currency unit.
+              invalid_params:
+                - name: amount
+                  reason: Must be greater than 0
+          missing_idempotency_key:
+            summary: Missing idempotency key
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: Idempotency-Key is required for payment intent and refund creation.
+              invalid_params:
+                - name: Idempotency-Key
+                  reason: Must contain 1 to 255 characters
+  Unauthorized:
+    description: 'The request has missing, expired, or invalid credentials.'
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          authentication_required:
+            summary: Authentication required
+            value:
+              type: 'https://api.stripe-lite.internal/errors/unauthorized'
+              title: Unauthorized
+              status: 401
+              detail: Provide a valid bearer token or X-API-Key.
+    headers:
+      WWW-Authenticate:
+        description: >-
+          This header gives the bearer challenge. Every 401 response contains this header. This rule
+          also applies when the API rejects an API key.
+        required: true
+        schema:
+          type: string
+        example: Bearer realm="stripe-lite"
+  Forbidden:
+    description: The credentials are valid but do not have the required scope. The state does not change.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          example:
+            summary: Forbidden
+            value:
+              type: 'https://api.stripe-lite.internal/errors/forbidden'
+              title: Forbidden
+              status: 403
+              detail: The authenticated credential lacks the required permission for this operation.
+  NotFound:
+    description: 'The resource does not exist, or the authenticated merchant cannot access it.'
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          resource_not_found:
+            summary: Resource not found
+            value:
+              type: 'https://api.stripe-lite.internal/errors/not-found'
+              title: Not Found
+              status: 404
+              detail: 'The requested payment intent, refund, customer or payment method was not found.'
+  IdempotencyConflict:
+    description: >-
+      The key is bound to another payload, or the original request is still in progress. The API
+      creates no resource.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          idempotency_conflict:
+            summary: Idempotency conflict
+            value:
+              type: 'https://api.stripe-lite.internal/errors/idempotency-conflict'
+              title: Conflict
+              status: 409
+              detail: This idempotency key is already bound to a different request payload.
+          request_in_progress:
+            summary: Request in progress
+            value:
+              type: 'https://api.stripe-lite.internal/errors/request-in-progress'
+              title: Conflict
+              status: 409
+              detail: >-
+                A request with this idempotency key is still being processed. Retry with the same
+                key and payload.
+  RateLimited:
+    description: >-
+      The request exceeds the quota for the authenticated merchant. The API does not perform the
+      operation. Wait for the time in `Retry-After` before you retry.
+    headers:
+      Retry-After:
+        description: >-
+          This header gives the required wait time in whole seconds. All credentials for one
+          merchant use the same quota. The quota can change with the configuration.
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        example: 30
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          example:
+            summary: Too Many Requests
+            value:
+              type: 'https://api.stripe-lite.internal/errors/rate-limited'
+              title: Too Many Requests
+              status: 429
+              detail: The request quota for this merchant has been exceeded.
+  ServerError:
+    description: >-
+      The API reports an unexpected server error. The problem status equals the actual HTTP status.
+      Read the payment or refund state before you retry. For a creation retry, use the original
+      `Idempotency-Key`.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          example:
+            summary: Internal Server Error
+            value:
+              type: 'https://api.stripe-lite.internal/errors/internal-server-error'
+              title: Internal Server Error
+              status: 500
+              detail: >-
+                An unexpected error occurred. Use the request correlation ID when contacting
+                support.
+  InvalidPagination:
+    description: 'A cursor, filter, or limit is invalid. The API does not perform the list operation.'
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          invalid_pagination:
+            summary: Invalid pagination
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: starting_after and ending_before cannot be supplied together.
+              invalid_params:
+                - name: starting_after
+                  reason: Mutually exclusive with ending_before
+          invalid_cursor:
+            summary: Invalid cursor
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: The cursor is invalid or unavailable for this collection.
+              invalid_params:
+                - name: starting_after
+                  reason: Must identify an accessible object in this collection
+          invalid_limit:
+            summary: Limit outside supported range
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: limit must be an integer between 1 and 100.
+              invalid_params:
+                - name: limit
+                  reason: Must be between 1 and 100
+          invalid_filter:
+            summary: Unknown status filter
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: The status filter is not recognized for this collection.
+              invalid_params:
+                - name: status
+                  reason: Must be one of the documented status values
+  InvalidPathParameter:
+    description: >-
+      The resource ID or another request parameter has an invalid format. The request can also
+      contain an unexpected body.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          invalid_id:
+            summary: Malformed resource identifier
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: The path id does not match the expected resource identifier format.
+              invalid_params:
+                - name: id
+                  reason: Must match the resource ID pattern
+  ConfirmInvalidRequest:
+    description: >-
+      The request contains invalid JSON or payment method input. The previous payment state does not
+      change.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          missing_payment_method:
+            summary: Missing payment method
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-request'
+              title: Bad Request
+              status: 400
+              detail: A payment_method_id is required when the intent has no stored payment method.
+              invalid_params:
+                - name: payment_method_id
+                  reason: Required in requires_payment_method
+  PaymentDeclined:
+    description: >-
+      The processor declined authorization. The API sets `status` to `requires_payment_method`. The
+      API clears the payment method. The API does not capture funds.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          payment_declined:
+            summary: Payment declined
+            value:
+              type: 'https://api.stripe-lite.internal/errors/payment-declined'
+              title: Payment Declined
+              status: 402
+              detail: Authorization was declined. Supply another payment method and confirm again.
+  StateConflict:
+    description: The current state does not permit the operation. The API performs no new financial operation.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          invalid_state:
+            summary: Invalid state
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-state'
+              title: Conflict
+              status: 409
+              detail: The requested operation is not allowed in the current resource state.
+  ProcessorUnavailable:
+    description: >-
+      The API confirmed that the processor failure had no financial effect. The previous payment
+      state does not change.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          processor_unavailable:
+            summary: Processor unavailable
+            value:
+              type: 'https://api.stripe-lite.internal/errors/processor-unavailable'
+              title: Service Unavailable
+              status: 503
+              detail: >-
+                The payment processor is temporarily unavailable. Retrieve the intent before
+                retrying.
+  RefundConflict:
+    description: >-
+      The request conflicts with the current state, an idempotency key, or the available refund
+      amount. The API performs no new financial operation.
+    content:
+      application/problem+json:
+        schema:
+          $ref: ../components/problem.yaml#/ProblemDocument
+        examples:
+          invalid_state:
+            summary: Invalid state
+            value:
+              type: 'https://api.stripe-lite.internal/errors/invalid-state'
+              title: Conflict
+              status: 409
+              detail: The requested operation is not allowed in the current resource state.
+          idempotency_conflict:
+            summary: Idempotency conflict
+            value:
+              type: 'https://api.stripe-lite.internal/errors/idempotency-conflict'
+              title: Conflict
+              status: 409
+              detail: This idempotency key is already bound to a different request payload.
+          request_in_progress:
+            summary: Request in progress
+            value:
+              type: 'https://api.stripe-lite.internal/errors/request-in-progress'
+              title: Conflict
+              status: 409
+              detail: >-
+                A request with this idempotency key is still being processed. Retry with the same
+                key and payload.
+          refund_exceeds_available:
+            summary: Refund exceeds available
+            value:
+              type: 'https://api.stripe-lite.internal/errors/refund-exceeds-available'
+              title: Conflict
+              status: 409
+              detail: >-
+                The requested refund exceeds the captured amount remaining after succeeded and
+                pending refunds.

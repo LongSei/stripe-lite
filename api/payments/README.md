@@ -10,7 +10,8 @@ The URL prefix is `/v1`. The path keys do not include this prefix.
 - `schemas.yaml` defines the request and response models.
 
 The contract references the shared headers, pagination parameters, and ProblemDocument.
-It reuses error responses through references to their definitions in the path files.
+The x-responses section in payment_intents.yaml defines the named error responses.
+Both path files reference those responses.
 The `x-retrieve`, `x-confirm`, `x-capture`, and `x-cancel` fields store reusable path items.
 Their references make the operations available at the paths listed below.
 

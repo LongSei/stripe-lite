@@ -94,58 +94,19 @@ post:
                 metadata: {}
                 created_at: '2026-10-26T10:00:00Z'
     '400':
-      $ref: ./payment_intents.yaml#/post/responses/400
+      $ref: ./payment_intents.yaml#/x-responses/CreateInvalidRequest
     '401':
-      $ref: ./payment_intents.yaml#/post/responses/401
+      $ref: ./payment_intents.yaml#/x-responses/Unauthorized
     '403':
-      $ref: ./payment_intents.yaml#/post/responses/403
+      $ref: ./payment_intents.yaml#/x-responses/Forbidden
     '404':
-      $ref: ./payment_intents.yaml#/post/responses/404
+      $ref: ./payment_intents.yaml#/x-responses/NotFound
     '409':
-      description: >-
-        The request conflicts with the current state, an idempotency key, or the available refund
-        amount. The API performs no new financial operation.
-      content:
-        application/problem+json:
-          schema:
-            $ref: ../components/problem.yaml#/ProblemDocument
-          examples:
-            invalid_state:
-              summary: Invalid state
-              value:
-                type: 'https://api.stripe-lite.internal/errors/invalid-state'
-                title: Conflict
-                status: 409
-                detail: The requested operation is not allowed in the current resource state.
-            idempotency_conflict:
-              summary: Idempotency conflict
-              value:
-                type: 'https://api.stripe-lite.internal/errors/idempotency-conflict'
-                title: Conflict
-                status: 409
-                detail: This idempotency key is already bound to a different request payload.
-            request_in_progress:
-              summary: Request in progress
-              value:
-                type: 'https://api.stripe-lite.internal/errors/request-in-progress'
-                title: Conflict
-                status: 409
-                detail: >-
-                  A request with this idempotency key is still being processed. Retry with the same
-                  key and payload.
-            refund_exceeds_available:
-              summary: Refund exceeds available
-              value:
-                type: 'https://api.stripe-lite.internal/errors/refund-exceeds-available'
-                title: Conflict
-                status: 409
-                detail: >-
-                  The requested refund exceeds the captured amount remaining after succeeded and
-                  pending refunds.
+      $ref: ./payment_intents.yaml#/x-responses/RefundConflict
     '429':
-      $ref: ./payment_intents.yaml#/post/responses/429
+      $ref: ./payment_intents.yaml#/x-responses/RateLimited
     default:
-      $ref: ./payment_intents.yaml#/post/responses/default
+      $ref: ./payment_intents.yaml#/x-responses/ServerError
   requestBody:
     required: true
     content:
@@ -272,15 +233,15 @@ get:
                 has_more: false
                 url: /v1/refunds
     '400':
-      $ref: ./payment_intents.yaml#/get/responses/400
+      $ref: ./payment_intents.yaml#/x-responses/InvalidPagination
     '401':
-      $ref: ./payment_intents.yaml#/post/responses/401
+      $ref: ./payment_intents.yaml#/x-responses/Unauthorized
     '403':
-      $ref: ./payment_intents.yaml#/post/responses/403
+      $ref: ./payment_intents.yaml#/x-responses/Forbidden
     '429':
-      $ref: ./payment_intents.yaml#/post/responses/429
+      $ref: ./payment_intents.yaml#/x-responses/RateLimited
     default:
-      $ref: ./payment_intents.yaml#/post/responses/default
+      $ref: ./payment_intents.yaml#/x-responses/ServerError
 x-retrieve:
   get:
     operationId: getRefund
@@ -361,14 +322,14 @@ x-retrieve:
                     support_ticket: ticket_42
                   created_at: '2026-10-26T10:00:00Z'
       '400':
-        $ref: ./payment_intents.yaml#/x-retrieve/get/responses/400
+        $ref: ./payment_intents.yaml#/x-responses/InvalidPathParameter
       '401':
-        $ref: ./payment_intents.yaml#/post/responses/401
+        $ref: ./payment_intents.yaml#/x-responses/Unauthorized
       '403':
-        $ref: ./payment_intents.yaml#/post/responses/403
+        $ref: ./payment_intents.yaml#/x-responses/Forbidden
       '404':
-        $ref: ./payment_intents.yaml#/post/responses/404
+        $ref: ./payment_intents.yaml#/x-responses/NotFound
       '429':
-        $ref: ./payment_intents.yaml#/post/responses/429
+        $ref: ./payment_intents.yaml#/x-responses/RateLimited
       default:
-        $ref: ./payment_intents.yaml#/post/responses/default
+        $ref: ./payment_intents.yaml#/x-responses/ServerError
