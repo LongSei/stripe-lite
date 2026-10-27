@@ -3,23 +3,23 @@ IdempotencyKeyHeader:
   in: header
   # The key is required to prevent duplicate payments and refunds.
   required: true
-  description: |-
-    Use a unique key when you create a PaymentIntent or refund.
-    The key is required.
+  description: |
+    This key is required to create a PaymentIntent or refund.
     Use the same key for each retry of the same request.
     The key prevents duplicate payments and refunds.
     Use a UUID v4 or another unique value.
-    The key contains 1 to 255 characters.
   schema:
     type: string
     minLength: 1
     maxLength: 255
     example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+
 XRequestIdHeader:
   name: X-Request-Id
   in: header
   required: false
-  description: This optional ID links records for the same request. The API uses this ID for tracing.
+  description: |
+    Distributed correlation ID for end-to-end request tracing and observability.
   schema:
     type: string
     format: uuid
