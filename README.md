@@ -83,7 +83,7 @@ SERVER_PORT=9000 SERVER_HOST=127.0.0.1 APP_ENV=production make run
 | :--- | :--- | :--- |
 | `SERVER_PORT` | `8080` | Port for the HTTP gateway |
 | `SERVER_HOST` | `0.0.0.0` | Network interface to bind |
-| `SERVER_BASE_PATH` | `/api/v1` | Base API routing namespace |
+| `SERVER_BASE_PATH` | `/v1` | Base API routing namespace |
 | `APP_ENV` | `development` | `development` (Gin debug mode) or `production` (Gin release mode) |
 
 ---
@@ -97,8 +97,8 @@ Once the server is running, access:
 | `http://localhost:8080/docs` | `GET` | HTML | Interactive Swagger UI (Embedded SPA) |
 | `http://localhost:8080/openapi.json` | `GET` | JSON | Machine-readable OpenAPI specification (JSON) |
 | `http://localhost:8080/openapi.yaml` | `GET` | YAML | Machine-readable OpenAPI specification (YAML) |
-| `http://localhost:8080/api/v1/healthz` | `GET` | JSON | Liveness & operational readiness probe |
-| `http://localhost:8080/healthz` | `GET` | Redirect | Root alias redirecting orchestrators to `/api/v1/healthz` |
+| `http://localhost:8080/v1/healthz` | `GET` | JSON | Liveness & operational readiness probe |
+| `http://localhost:8080/healthz` | `GET` | Redirect | Root alias redirecting orchestrators to `/v1/healthz` |
 
 ---
 

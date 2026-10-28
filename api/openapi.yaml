@@ -11,7 +11,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
 servers:
-  - url: /api/v1
+  - url: /v1
     description: Baseline v1 API gateway prefix
 
 security:
