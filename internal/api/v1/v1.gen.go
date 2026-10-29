@@ -55,10 +55,16 @@ const (
 	Succeeded             PaymentIntentResponseStatus = "succeeded"
 )
 
+// Defines values for UpdateWebhookEndpointRequestStatus.
+const (
+	UpdateWebhookEndpointRequestStatusActive   UpdateWebhookEndpointRequestStatus = "active"
+	UpdateWebhookEndpointRequestStatusDisabled UpdateWebhookEndpointRequestStatus = "disabled"
+)
+
 // Defines values for WebhookEndpointResponseStatus.
 const (
-	WebhookEndpointResponseStatusActive   WebhookEndpointResponseStatus = "active"
-	WebhookEndpointResponseStatusDisabled WebhookEndpointResponseStatus = "disabled"
+	Active   WebhookEndpointResponseStatus = "active"
+	Disabled WebhookEndpointResponseStatus = "disabled"
 )
 
 // Defines values for WebhookEventType.
@@ -191,6 +197,28 @@ type ProblemDocument struct {
 	Type string `json:"type"`
 }
 
+// RotateWebhookSecretResponse Newly generated signing secret for a webhook endpoint. The previous secret is invalidated after successful rotation.
+type RotateWebhookSecretResponse struct {
+	// Id Unique identifier for the webhook endpoint.
+	Id string `json:"id"`
+
+	// Secret New signing secret used to sign webhook deliveries after rotation.
+	Secret string `json:"secret"`
+}
+
+// UpdateWebhookEndpointRequest Mutable webhook endpoint fields. The endpoint ID, signing secret, and creation timestamp cannot be updated.
+type UpdateWebhookEndpointRequest struct {
+	// Events List of event types to subscribe to.
+	Events *[]WebhookEventType                 `json:"events,omitempty"`
+	Status *UpdateWebhookEndpointRequestStatus `json:"status,omitempty"`
+
+	// Url HTTPS destination URL receiving webhook deliveries.
+	Url *string `json:"url,omitempty"`
+}
+
+// UpdateWebhookEndpointRequestStatus defines model for UpdateWebhookEndpointRequest.Status.
+type UpdateWebhookEndpointRequestStatus string
+
 // WebhookEndpointResponse Webhook endpoint details safe to return from read operations. It never includes the signing secret.
 type WebhookEndpointResponse struct {
 	// CreatedAt Timestamp when the endpoint was created.
@@ -247,6 +275,30 @@ type CreateWebhookEndpointParams struct {
 	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
+// DeleteWebhookEndpointParams defines parameters for DeleteWebhookEndpoint.
+type DeleteWebhookEndpointParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetWebhookEndpointParams defines parameters for GetWebhookEndpoint.
+type GetWebhookEndpointParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// UpdateWebhookEndpointParams defines parameters for UpdateWebhookEndpoint.
+type UpdateWebhookEndpointParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// RotateWebhookSecretParams defines parameters for RotateWebhookSecret.
+type RotateWebhookSecretParams struct {
+	// XRequestId Distributed correlation ID for end-to-end request tracing and observability.
+	XRequestId *XRequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
 // CreateAuthTokenJSONRequestBody defines body for CreateAuthToken for application/json ContentType.
 type CreateAuthTokenJSONRequestBody = AuthTokenRequest
 
@@ -255,6 +307,9 @@ type CreatePaymentIntentJSONRequestBody = CreatePaymentIntentRequest
 
 // CreateWebhookEndpointJSONRequestBody defines body for CreateWebhookEndpoint for application/json ContentType.
 type CreateWebhookEndpointJSONRequestBody = CreateWebhookEndpointRequest
+
+// UpdateWebhookEndpointJSONRequestBody defines body for UpdateWebhookEndpoint for application/json ContentType.
+type UpdateWebhookEndpointJSONRequestBody = UpdateWebhookEndpointRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -273,6 +328,18 @@ type ServerInterface interface {
 	// Register webhook endpoint
 	// (POST /webhook-endpoints)
 	CreateWebhookEndpoint(c *gin.Context, params CreateWebhookEndpointParams)
+	// Delete a webhook endpoint
+	// (DELETE /webhook-endpoints/{id})
+	DeleteWebhookEndpoint(c *gin.Context, id string, params DeleteWebhookEndpointParams)
+	// Retrieve a webhook endpoint
+	// (GET /webhook-endpoints/{id})
+	GetWebhookEndpoint(c *gin.Context, id string, params GetWebhookEndpointParams)
+	// Update a webhook endpoint
+	// (PATCH /webhook-endpoints/{id})
+	UpdateWebhookEndpoint(c *gin.Context, id string, params UpdateWebhookEndpointParams)
+	// Rotate a webhook endpoint signing secret
+	// (POST /webhook-endpoints/{id}/rotate-secret)
+	RotateWebhookSecret(c *gin.Context, id string, params RotateWebhookSecretParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -484,6 +551,214 @@ func (siw *ServerInterfaceWrapper) CreateWebhookEndpoint(c *gin.Context) {
 	siw.Handler.CreateWebhookEndpoint(c, params)
 }
 
+// DeleteWebhookEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWebhookEndpoint(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteWebhookEndpointParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteWebhookEndpoint(c, id, params)
+}
+
+// GetWebhookEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) GetWebhookEndpoint(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWebhookEndpointParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetWebhookEndpoint(c, id, params)
+}
+
+// UpdateWebhookEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWebhookEndpoint(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateWebhookEndpointParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateWebhookEndpoint(c, id, params)
+}
+
+// RotateWebhookSecret operation middleware
+func (siw *ServerInterfaceWrapper) RotateWebhookSecret(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	c.Set(ApiKeyAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RotateWebhookSecretParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Request-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-Id")]; found {
+		var XRequestId XRequestIdHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Request-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Request-Id", valueList[0], &XRequestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Request-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XRequestId = &XRequestId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RotateWebhookSecret(c, id, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -516,6 +791,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/payment-intents", wrapper.CreatePaymentIntent)
 	router.GET(options.BaseURL+"/webhook-endpoints", wrapper.ListWebhookEndpoints)
 	router.POST(options.BaseURL+"/webhook-endpoints", wrapper.CreateWebhookEndpoint)
+	router.DELETE(options.BaseURL+"/webhook-endpoints/:id", wrapper.DeleteWebhookEndpoint)
+	router.GET(options.BaseURL+"/webhook-endpoints/:id", wrapper.GetWebhookEndpoint)
+	router.PATCH(options.BaseURL+"/webhook-endpoints/:id", wrapper.UpdateWebhookEndpoint)
+	router.POST(options.BaseURL+"/webhook-endpoints/:id/rotate-secret", wrapper.RotateWebhookSecret)
 }
 
 type CreateAuthTokenRequestObject struct {
@@ -749,6 +1028,231 @@ func (response CreateWebhookEndpoint500ApplicationProblemPlusJSONResponse) Visit
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeleteWebhookEndpointRequestObject struct {
+	Id     string `json:"id"`
+	Params DeleteWebhookEndpointParams
+}
+
+type DeleteWebhookEndpointResponseObject interface {
+	VisitDeleteWebhookEndpointResponse(w http.ResponseWriter) error
+}
+
+type DeleteWebhookEndpoint204Response struct {
+}
+
+func (response DeleteWebhookEndpoint204Response) VisitDeleteWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteWebhookEndpoint401ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response DeleteWebhookEndpoint401ApplicationProblemPlusJSONResponse) VisitDeleteWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWebhookEndpoint403ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response DeleteWebhookEndpoint403ApplicationProblemPlusJSONResponse) VisitDeleteWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWebhookEndpoint404ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response DeleteWebhookEndpoint404ApplicationProblemPlusJSONResponse) VisitDeleteWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWebhookEndpoint500ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response DeleteWebhookEndpoint500ApplicationProblemPlusJSONResponse) VisitDeleteWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWebhookEndpointRequestObject struct {
+	Id     string `json:"id"`
+	Params GetWebhookEndpointParams
+}
+
+type GetWebhookEndpointResponseObject interface {
+	VisitGetWebhookEndpointResponse(w http.ResponseWriter) error
+}
+
+type GetWebhookEndpoint200JSONResponse WebhookEndpointResponse
+
+func (response GetWebhookEndpoint200JSONResponse) VisitGetWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWebhookEndpoint401ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response GetWebhookEndpoint401ApplicationProblemPlusJSONResponse) VisitGetWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWebhookEndpoint403ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response GetWebhookEndpoint403ApplicationProblemPlusJSONResponse) VisitGetWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWebhookEndpoint404ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response GetWebhookEndpoint404ApplicationProblemPlusJSONResponse) VisitGetWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWebhookEndpoint500ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response GetWebhookEndpoint500ApplicationProblemPlusJSONResponse) VisitGetWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWebhookEndpointRequestObject struct {
+	Id     string `json:"id"`
+	Params UpdateWebhookEndpointParams
+	Body   *UpdateWebhookEndpointJSONRequestBody
+}
+
+type UpdateWebhookEndpointResponseObject interface {
+	VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error
+}
+
+type UpdateWebhookEndpoint200JSONResponse WebhookEndpointResponse
+
+func (response UpdateWebhookEndpoint200JSONResponse) VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWebhookEndpoint400ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response UpdateWebhookEndpoint400ApplicationProblemPlusJSONResponse) VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWebhookEndpoint401ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response UpdateWebhookEndpoint401ApplicationProblemPlusJSONResponse) VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWebhookEndpoint403ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response UpdateWebhookEndpoint403ApplicationProblemPlusJSONResponse) VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWebhookEndpoint404ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response UpdateWebhookEndpoint404ApplicationProblemPlusJSONResponse) VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWebhookEndpoint500ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response UpdateWebhookEndpoint500ApplicationProblemPlusJSONResponse) VisitUpdateWebhookEndpointResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RotateWebhookSecretRequestObject struct {
+	Id     string `json:"id"`
+	Params RotateWebhookSecretParams
+}
+
+type RotateWebhookSecretResponseObject interface {
+	VisitRotateWebhookSecretResponse(w http.ResponseWriter) error
+}
+
+type RotateWebhookSecret200JSONResponse RotateWebhookSecretResponse
+
+func (response RotateWebhookSecret200JSONResponse) VisitRotateWebhookSecretResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RotateWebhookSecret401ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response RotateWebhookSecret401ApplicationProblemPlusJSONResponse) VisitRotateWebhookSecretResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RotateWebhookSecret403ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response RotateWebhookSecret403ApplicationProblemPlusJSONResponse) VisitRotateWebhookSecretResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RotateWebhookSecret404ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response RotateWebhookSecret404ApplicationProblemPlusJSONResponse) VisitRotateWebhookSecretResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RotateWebhookSecret500ApplicationProblemPlusJSONResponse ProblemDocument
+
+func (response RotateWebhookSecret500ApplicationProblemPlusJSONResponse) VisitRotateWebhookSecretResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Issue API session token (Stub)
@@ -766,6 +1270,18 @@ type StrictServerInterface interface {
 	// Register webhook endpoint
 	// (POST /webhook-endpoints)
 	CreateWebhookEndpoint(ctx context.Context, request CreateWebhookEndpointRequestObject) (CreateWebhookEndpointResponseObject, error)
+	// Delete a webhook endpoint
+	// (DELETE /webhook-endpoints/{id})
+	DeleteWebhookEndpoint(ctx context.Context, request DeleteWebhookEndpointRequestObject) (DeleteWebhookEndpointResponseObject, error)
+	// Retrieve a webhook endpoint
+	// (GET /webhook-endpoints/{id})
+	GetWebhookEndpoint(ctx context.Context, request GetWebhookEndpointRequestObject) (GetWebhookEndpointResponseObject, error)
+	// Update a webhook endpoint
+	// (PATCH /webhook-endpoints/{id})
+	UpdateWebhookEndpoint(ctx context.Context, request UpdateWebhookEndpointRequestObject) (UpdateWebhookEndpointResponseObject, error)
+	// Rotate a webhook endpoint signing secret
+	// (POST /webhook-endpoints/{id}/rotate-secret)
+	RotateWebhookSecret(ctx context.Context, request RotateWebhookSecretRequestObject) (RotateWebhookSecretResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -937,72 +1453,204 @@ func (sh *strictHandler) CreateWebhookEndpoint(ctx *gin.Context, params CreateWe
 	}
 }
 
+// DeleteWebhookEndpoint operation middleware
+func (sh *strictHandler) DeleteWebhookEndpoint(ctx *gin.Context, id string, params DeleteWebhookEndpointParams) {
+	var request DeleteWebhookEndpointRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWebhookEndpoint(ctx, request.(DeleteWebhookEndpointRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWebhookEndpoint")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(DeleteWebhookEndpointResponseObject); ok {
+		if err := validResponse.VisitDeleteWebhookEndpointResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWebhookEndpoint operation middleware
+func (sh *strictHandler) GetWebhookEndpoint(ctx *gin.Context, id string, params GetWebhookEndpointParams) {
+	var request GetWebhookEndpointRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWebhookEndpoint(ctx, request.(GetWebhookEndpointRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWebhookEndpoint")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetWebhookEndpointResponseObject); ok {
+		if err := validResponse.VisitGetWebhookEndpointResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateWebhookEndpoint operation middleware
+func (sh *strictHandler) UpdateWebhookEndpoint(ctx *gin.Context, id string, params UpdateWebhookEndpointParams) {
+	var request UpdateWebhookEndpointRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body UpdateWebhookEndpointJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWebhookEndpoint(ctx, request.(UpdateWebhookEndpointRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWebhookEndpoint")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(UpdateWebhookEndpointResponseObject); ok {
+		if err := validResponse.VisitUpdateWebhookEndpointResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RotateWebhookSecret operation middleware
+func (sh *strictHandler) RotateWebhookSecret(ctx *gin.Context, id string, params RotateWebhookSecretParams) {
+	var request RotateWebhookSecretRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RotateWebhookSecret(ctx, request.(RotateWebhookSecretRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RotateWebhookSecret")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(RotateWebhookSecretResponseObject); ok {
+		if err := validResponse.VisitRotateWebhookSecretResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AP//wUwjVKY9AAA=",
+	"H4sIAAAAAAAC/+xd6XLbOLZ+FRTv/Oiu0e41/ufY6Y4767WdSk/sjAsijkRMSIADgHLUXX6YeZZbdZ9r",
+	"6gAgxU2y5DhJd9v/LIoiDs76nYXw70Eok1QKEEYHB78HKVU0AQPKfjphkKTSgAjnL2D+HCgDhdcZ6FDx",
+	"1HApgoPgneD/zoDwxc3kE8yJztI05sDIeE5MBCSMOQhDjCSpghn+yWQ2joGEEVVTLqaEhkpqTQSYa6k+",
+	"kZQqw3EN3bsUpxDKJAHBgOEjMg2Ektk2effu5JhIRTJHhIZ/ZyBCIEZ+AkF+SOhnEoOYmoiMdnbsUvrH",
+	"3qUIOgFH2iO3p04gaALBQXnH3RcwDzqBDiNIKO4aPtMkjfGuJ+Mhg/E2626N91h3e0xZ98mYse5oPGB7",
+	"4y0WjndZ0AkS+vmlXTs4GO3sdAIzT/HX2igupsHNTSf49RTp1eaELWPuMcfbx5kBRkKpFMQUvyEnx2Qi",
+	"FQHBukZ2QTCi3KOIUTS03BSMyLEGNaNjHnMzX7HtX7uekO4JW7Ln3THdG+8PB90njLLucMiG3f3BeLs7",
+	"GISD7Qnb3hqE+0EnmEiVUBMcBFnG8VH1Pd/kT7cKdpiZ6Bwl5Ze3KqhkCspwsHfQlF99gnmTMa9AhREV",
+	"hmgIFRhy+PYE1a4XdEpE609XMZ/B1c7wlf7tw/4IPsxe/COWo6OXQZs4kIVcAQsOLoqFPxY3yvG/IDTB",
+	"TadMtk6l0NBCdxiC1ldWDauM1BDi5avB8PmvH3ZePD0dHT8Zjl40CcKNpFyBvuKiuf+XfAKGJ0DkxJqX",
+	"W9DrPRfIFimYrvBja3cwKJbhwsAUFK5jf3TlrpdJfQpUWTVZzarSzzvVjVe20MbJIwXUwFs6T0CYE2FA",
+	"mOWqkMhMmCYnDu11gvvJ3cMYSCjjGEI0G2RGQuMYjSPMlLIeKhPckB+gN+2REJ3fjxVGjQbIqEKXuTC7",
+	"20Eb50KamkzBVQImkszRNqFZjL+imZEJNTzEJ4sssVpVupZQkdG4xJaF4HMym5s9jxRANwZjQJGTszdk",
+	"ezTcW2wrlAyqJpDpmiva6gQJF6VPLatrIxNQV5w1CTjyX6K/F4ZPOKjqgmGmvW7/8uTF7tP9vf+93dac",
+	"ZEv7rhKxXHPewziS8tMzwVLJK7pDGbPBg8ZvS1o0obGGTk2xbDTSbSamDZqXi1ZIAdoX0dkY7xpjkKls",
+	"/SJInSJfWV00PZ2FIQADlEDtq/zjhPIY7A65gcQS8TcFk+Ag+J/+IjT3vc/s5/tFis6RJTdWmifut8OC",
+	"T1Qpilx0YdF/bVQGN50gU3Fzr8/Pz9+eEQbacOEizLvTl0RBCHyG0eTaLUwYoENVHKqeJYiMSfVBv++v",
+	"9EKZ9GnK+/53uhIaFLcMQR3Gtf+Z//jin5eX+uPf/3arwuAWOrncNtCOhbemcfxmEhxcrMfu+gNuOnXn",
+	"5KJQk69nfCqQfz5KZdo5KFwrM0Cevzo8ImfPD7ujnV2vZ5pPBUWnonvkFEymBDAiRTwn1xEI6+vB00O4",
+	"JqHdKatK4zrCKHP49Gg42vr1Hx+2d3aDitXvVdjv7r447H6g3d8G3SfrSMDvt8n7j50aB17DdTzPySz0",
+	"KN9Ch3ARxhlDHnGjiRTQtWFNVxjXQ6E+BxqbaHnM1YaazFm0d7fyU4DkTBVlzsgWLLJfNVwfLq0NTdJq",
+	"IBwNRrvd4aA72jofbB9sDw4Ggw9ljWbUOLLbnjkDpS0ryk8c9ga9we1cdjsq07V4Xpven4gZjTl7izC+",
+	"ySCH9pohBUhKTYQwGu/IEQV3zyITDjHDL4vkoKpshfdu7FwB1bIFu5za6+Q6mi+eSZwnJHZN54FCKbRR",
+	"lAtTczavMm0wxk+tUiliIirI7dy02y+oamMfevyazeuyvtVCoYMYSKqcNDSbMDCUx5qMIZbCJjhGOqiW",
+	"mQhjZ2gtIvFAFrdYFRejhjZXfV9bZ/0FyHnENYkxqiV0jgyEJDUWMm8UfJresBp26ny3+2hjdw33LcXS",
+	"BfC7A0BzfueKmnu06DI8qyOtxs1tIGqRMnsIZZM5FF2FJVWtT3mOq5xj325brekDvST0VQ45PFbtLL4J",
+	"pZhw3DhSV77u0C1mhCUkE1IRQlz3p+U7VpuhzQvbIF/h7UpCa1UbJccxJMcyzHBDLf7lpyOytz/YI/5O",
+	"cuxNUUGqQIMwzsEg0xH4YPKoe5fiDOCA5GAEtRZz6U+gehzMpCfVtM9k2I9MEvfVJMQVLl2Og5GUxscy",
+	"1CuIOUsh5BM0Ssdmi8OCjZbD3dd8hN1ZS1JEoiyhoquAMjqOgcDnNKYe2mlPifMXXBMZejEUzj91nKtq",
+	"IEYKJ7iS3068M6YklZobPgPi7W955mX9edNShDaoW227eXd6QhRMwBFpImoW1qMtxcWm1txM3xdMNP5x",
+	"lZd0tsZ7rIZVu8W67UTbiHVlGdIi/p8VFVlMlQuj3RhmEJeDHCgllV7bB1cCfMPxlu2/GeStqrsbbKJI",
+	"piBA2Rjha3RS8amtHahZLcpv1/3t1qjV3xpu4lYB6kgq06lrpc6ShKp5TVA216pK6yllJM/u2nCbr12s",
+	"VhuvMXMbKlcul1slTXkPV0mhG3MDPdwpmnrfia3vpd9VBWm1LOeWyomrmTimFcJr83mn0iwSmjOLiZcD",
+	"Ewe5F9KtYmnr9mgDryA8AFub5TLT+b1c5zjQPolO0OStr9d6ksVESedLm+hls7jXoKaaz4APfa+2X++8",
+	"3d3bbw19S1Kw13Bd50CehuHlltTWb7O8t3pu9frZ+739J2fPjk6fnX+F9MrGyKU5Vid4l7K7Vz9qhdTM",
+	"WFNs4FfrsLRTi+LiyXGnxsyOrTTbkI3+rMhUSEiFkDY0ZJZam6MmXJQpGn6XWoyCSSZYz8OMb1p8aeIz",
+	"GmLMxDyVaxREDVcVXzf0/bvUcfqz0ZeXchrqvKJQszr5KZIsTSeoA0TZigmZKJkQjDIElYu6LhI5MUTA",
+	"zAKTMM5YDhxqlYa6SlZTiFpYLbS9WZy5pkuqM0XusXM+3D0Y7R8M9tfPPZYZyLOSYRRW4Yrhcwfyyq71",
+	"m+n7t48Cf3IDu99CqY0jlWrp+mlWQ/wrdC7frtO4paL0ErlzmbzNdTcZoCHMFDfzM9RjZ8OHKX8B88MM",
+	"o/OanUSrlIwrCI0HxF0ju+4vl+GoAh0saaoevj3xXeTcUiwZyFzXWssJGttPP+Vy/+X9eVAP02ehTIGR",
+	"X96fE3d33urTOlsAeGdTZm4p5qFFtdaccfVxrZ2H2uRaslxMpHV1UhgamkWtMDiSCsjbmBpUSnKowogb",
+	"CE2mgJyDS0GqdL5VkmW2KNa1ZVcyphpiLsDyVZdz4MLszxYIm3iJkyk1cE3nvUtxyCJQ6NWM4qGJ56hh",
+	"SzN8i23j2OU6FqTXkn7t2uAxD8FHGL/TVyfnjaRcpiC0zFQINh33P9J9vHeR7ARl+nGXPzvaS7XavOB7",
+	"0wnwmTTlwUGw1Rv0tpyBR1ZL+zQzUd/K1U1jSN3W7yxV93RR3cNQY4VPY20RmVUMTSjRTnO81mjQ2uI0",
+	"XAXVowiQJwzlbQ2raHBb6hYjIUvaJYtb+o2JhpuPziOBNk8lm+da5us2NE1jrw39f/la8WL6YFVwaowO",
+	"3FR9n48/ykMJy8/RYPg11s/LoDcNY3hattRF1hTPSYIehNm2xvZgsIIqn6P+fTPq6iWyFtp8JaGYG0np",
+	"PJY0J2n4PUgqabZ1D9bpW4J2vg9BxzKhXJCIChaDHTLCmI13W7pKsSY4uPjYCXw5A7mL1udcXtngyA9n",
+	"Jhv/iD6YTtGg6nu+zAaD0S458X48+IiL9CPb+foNdzRtS3Fdn1DnXn8BemlsUTAXoJ1XwChtPzgU0HQA",
+	"P4N57ldrWM/g3qyn1sprYf2Z3wrXxO1+7iaaFjv7nsbzisYYEIHZGhIsyqHaq+vW96CqxLO86UmkIvA5",
+	"RSAq7FgYk9dCGwU0sfZl+8wrNdmJioQRhJ/cbkvaezbXBhKvpT50dx12WxHBTgQ33EYvSgRcV5se5Jqb",
+	"qDJNCGIiVWjNrkdeUUGnDvC8lGK6LIJVHrlxFGsdfLzp/HGi34q5qW8cB9t7eC3KWRVyPg9QDop/3Gj4",
+	"5LuQVDKBUIpJzEPzBw+GhdNw+lmAeecRmsHP64TOw57NNp6JKRfgfYpPI7tFt/vWGNiWfG7UhK+6k7aR",
+	"gPtCxRsH16KMkA8HXFTLU8tKS3nR6Asn1NiSIkxec1nUUqpp1NJax83Hm86aCrpyNKNFW+8+JrE5AC6L",
+	"xfdjg0PX5LMQcJGaYWjOfbMrHOQtz9X9yJzD24PhIu18J3AHUvHfyl33dVtXWfnXa4thcxRfyUsVkIRr",
+	"jUKQKu8seY5vfSHHzyOoc5tJ0ERIQyI6A5KCsotbMO7mYBqO4m5C2VoI5SepxpwxmzpvKJFJ8dP7FMd5",
+	"Q9NDGqMD5441NI7ltavbLWOJjTmDexBP0y+HMosZ8X0iBUZxmN3NNHbsbLuXwolnLTlz9bpnyOHNJZJ/",
+	"vneBrMsIMoaQZtpOMlBBMoFY3k61+0KkJbQefV+2yrEUd9/nDhj9bztGP5JiwqeYHuDC7VXviVQkzXTU",
+	"HVMNjFA9F2GkpJCZ9o06IU1R7tPLsHrNrX+PmlNJYe8nVq4bADsbAf4lDd97g/wlNvwRYIVv6LePM98d",
+	"dHwhz9fHHETBlGtj2yJfmOgs86hohosJLAc5msZKBXMGqd3Nts7PhRsr11maSoU+pdRc38QD10egLoqa",
+	"uus85WPAxdxu4VDenb7s2bza31/0qIqfHDlKtfN+baT2rLkvYnEpCrQODd11tOc+Q0CebRaKgmK0bzE2",
+	"dqj4dJqXlR5R6V8elTq3+4hLK7h0OVM2rs60G0Vz9sl2Jrm2hkljBZTNCXzm+q6SeLKQxJGv5WwuiLwK",
+	"dL+GIUojK9xEbiaGJtCAe3U+fLW0oAqGSzM0f+mcoH33KSiNGOKOqcCpRyANHrdnA60lt/7vnN04ocVg",
+	"WuZAju113TJUeve6m3vmranBbZNFfrB488EiO9KRUhMtBjp46aUJD7PLKtAYRLmXsuD2WkNwyKtWjPkI",
+	"GP7igMHJ/hEwVADDcqZYEW3fg4g8P1teabWDn0jQRGbijuaxvZDDa2nIT/ikzeUgpOlaIr56/WqhohYc",
+	"FJNdK0rs3wI6eMf44MqJrVy4G4BwcbgltC8rJ65szrHymN49ooWfwTxChcGfr8L31Wt4X1K988r6iKQe",
+	"BpLKmy6PWKqCpVax5RFNPSQ09XDbs/fanT3NDWp9TJVSE7a8ueLeArWH5qD3TCR6U/86p3t701J2jzir",
+	"9b3ThwG1vmY7uflW012RUX82Wt8aVr5FvFZT+XtBzpY3eO8bY27EyS+Bmf7t6K/RIT40JAaqjfUQFc9Q",
+	"NI1TJWecAXOvcdM4zj1HfoNHZHeJu3+GViy6eyeBfOa3dOYBetUw70ALWXOuj4nBw0gMvHo8pgXltGA5",
+	"Ux6TgoeUFJTO9njAKUEew++UEDgYtnY6sLxH27cn1kB3cRJO+2ynO0yo7fSLLy3MXgrklYzZkvOD7CkZ",
+	"+bk6xCM6f8aMgGviJv26qYIJ/wz5Uy5FDkbWOrjnmirWI6f5KrGc8jD3YKV3VsgcjHsZvJrjtBy19FhM",
+	"vg3ZrzvEWT83aW0zXXUAVhu0sOpUU26MGqVTsR675Q+vxmu1qOnfnII88ELvbbx5BHZ/cWBXc5fVoqfV",
+	"jgeI81Yw4471X2dn9Db+L0F/1Vf1f6+cJHTxEaN/+bCji492Ot6S04Zcnuan88yG1o/6Y3eIQ2BFsaw/",
+	"G1qQ4AmqP+VN+f/MdIgBxFhGzV1RyZ3f4E9KqGTPHuD4UwSQ9iVHM+XnGnXIG9xXOb64NfwhN7gFd34O",
+	"+cG/r/zmWoA6IC+i//uPiH4srXrLyRtNauzbydVXmnXH/fsi0B3iapKenhjYFGFgcfpcnZ6XUkzL1Kx6",
+	"FbpJSl5E9Ce92cu6s/jfAQTxcPHiVWfxAghhXNtuQp2es///jyjT8770ju5/AwAA//+H8VDuJmoAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
