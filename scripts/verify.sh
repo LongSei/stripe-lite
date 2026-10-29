@@ -77,13 +77,13 @@ echo "PASSED (HTTP 200)"
 # Test 4: OpenAPI JSON endpoint
 echo -n "[*] Testing GET /openapi.json ... "
 JSON_SPEC=$(curl -s "${BASE_URL}/openapi.json")
-echo "$JSON_SPEC" | grep -q '"title": "Stripe-lite API Gateway"' || { echo "FAILED (title mismatch)"; exit 1; }
+[[ "$JSON_SPEC" == *'"title": "Stripe-lite API Gateway"'* ]] || { echo "FAILED (title mismatch)"; exit 1; }
 echo "PASSED (Valid JSON specification served)"
 
 # Test 5: OpenAPI YAML endpoint
 echo -n "[*] Testing GET /openapi.yaml ... "
 YAML_SPEC=$(curl -s "${BASE_URL}/openapi.yaml")
-echo "$YAML_SPEC" | grep -q 'title: Stripe-lite API Gateway' || { echo "FAILED (YAML title mismatch)"; exit 1; }
+[[ "$YAML_SPEC" == *'title: Stripe-lite API Gateway'* ]] || { echo "FAILED (YAML title mismatch)"; exit 1; }
 echo "PASSED (Valid YAML specification served)"
 
 # Test 6: Stub endpoint RFC 7807 Problem Details (POST /v1/payment-intents)
