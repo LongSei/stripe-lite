@@ -1,0 +1,248 @@
+get:
+  summary: Retrieve a webhook endpoint
+  description: Returns details for a webhook endpoint belonging to the authenticated merchant.
+  operationId: getWebhookEndpoint
+  tags:
+    - Webhooks
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: Unique identifier of the webhook endpoint.
+      schema:
+        type: string
+      example: "we_01HXZ5M4N5P678"
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  responses:
+    "200":
+      description: Webhook endpoint details.
+      content:
+        application/json:
+          schema:
+            $ref: "./schemas.yaml#/WebhookEndpointResponse"
+          example:
+            id: "we_01HXZ5M4N5P678"
+            url: "https://example.com/api/webhooks"
+            events:
+              - "payment_intent.succeeded"
+              - "payment_intent.payment_failed"
+            status: "active"
+            created_at: "2026-10-25T16:28:08Z"
+    "401":
+      description: Authentication credentials are missing or invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "A valid API credential is required."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "403":
+      description: The authenticated caller is not allowed to retrieve webhook endpoints.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "The API credential does not have permission to retrieve webhook endpoints."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "404":
+      description: The webhook endpoint does not exist for the authenticated merchant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "The requested webhook endpoint was not found."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "500":
+      description: The webhook endpoint could not be retrieved because of an unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/internal"
+            title: "Internal Server Error"
+            status: 500
+            detail: "The webhook endpoint could not be retrieved."
+            instance: "/requests/req_9b1deb4d3b7d"
+
+patch:
+  summary: Update a webhook endpoint
+  description: Updates one or more mutable fields of a webhook endpoint belonging to the authenticated merchant.
+  operationId: updateWebhookEndpoint
+  tags:
+    - Webhooks
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: Unique identifier of the webhook endpoint.
+      schema:
+        type: string
+      example: "we_01HXZ5M4N5P678"
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "./schemas.yaml#/UpdateWebhookEndpointRequest"
+        example:
+          url: "https://example.com/api/webhooks/v2"
+          events:
+            - "payment_intent.succeeded"
+            - "refund.created"
+          status: "active"
+  responses:
+    "200":
+      description: Webhook endpoint updated successfully.
+      content:
+        application/json:
+          schema:
+            $ref: "./schemas.yaml#/WebhookEndpointResponse"
+          example:
+            id: "we_01HXZ5M4N5P678"
+            url: "https://example.com/api/webhooks/v2"
+            events:
+              - "payment_intent.succeeded"
+              - "refund.created"
+            status: "active"
+            created_at: "2026-10-25T16:28:08Z"
+    "400":
+      description: The update payload is invalid or contains no mutable fields.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/invalid-request"
+            title: "Bad Request"
+            status: 400
+            detail: "At least one mutable field must be provided, and all fields must be valid."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "401":
+      description: Authentication credentials are missing or invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "A valid API credential is required."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "403":
+      description: The authenticated caller is not allowed to update webhook endpoints.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "The API credential does not have permission to update webhook endpoints."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "404":
+      description: The webhook endpoint does not exist for the authenticated merchant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "The requested webhook endpoint was not found."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "500":
+      description: The webhook endpoint could not be updated because of an unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/internal"
+            title: "Internal Server Error"
+            status: 500
+            detail: "The webhook endpoint could not be updated."
+            instance: "/requests/req_9b1deb4d3b7d"
+
+delete:
+  summary: Delete a webhook endpoint
+  description: Deletes a webhook endpoint belonging to the authenticated merchant.
+  operationId: deleteWebhookEndpoint
+  tags:
+    - Webhooks
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: Unique identifier of the webhook endpoint.
+      schema:
+        type: string
+      example: "we_01HXZ5M4N5P678"
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  responses:
+    "204":
+      description: Webhook endpoint deleted successfully.
+    "401":
+      description: Authentication credentials are missing or invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "A valid API credential is required."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "403":
+      description: The authenticated caller is not allowed to delete webhook endpoints.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "The API credential does not have permission to delete webhook endpoints."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "404":
+      description: The webhook endpoint does not exist for the authenticated merchant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "The requested webhook endpoint was not found."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "500":
+      description: The webhook endpoint could not be deleted because of an unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/internal"
+            title: "Internal Server Error"
+            status: 500
+            detail: "The webhook endpoint could not be deleted."
+            instance: "/requests/req_9b1deb4d3b7d"

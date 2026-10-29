@@ -1,6 +1,67 @@
+get:
+  summary: List webhook endpoints
+  description: Returns the webhook endpoints belonging to the authenticated merchant.
+  operationId: listWebhookEndpoints
+  tags:
+    - Webhooks
+  parameters:
+    - $ref: "../components/headers.yaml#/XRequestIdHeader"
+  responses:
+    "200":
+      description: Webhook endpoints belonging to the authenticated merchant.
+      content:
+        application/json:
+          schema:
+            $ref: "./schemas.yaml#/ListWebhookEndpointsResponse"
+          example:
+            data:
+              - id: "we_01HXZ5M4N5P678"
+                url: "https://example.com/api/webhooks"
+                events:
+                  - "payment_intent.succeeded"
+                  - "payment_intent.payment_failed"
+                status: "active"
+                created_at: "2026-10-25T16:28:08Z"
+    "401":
+      description: Authentication credentials are missing or invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "A valid API credential is required."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "403":
+      description: The authenticated caller is not allowed to list webhook endpoints.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "The API credential does not have permission to list webhook endpoints."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "500":
+      description: The webhook endpoints could not be retrieved because of an unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/internal"
+            title: "Internal Server Error"
+            status: 500
+            detail: "The webhook endpoints could not be retrieved."
+            instance: "/requests/req_9b1deb4d3b7d"
+
 post:
-  summary: Register webhook endpoint (Stub)
-  description: Configures an HTTPS destination URL for push-based asynchronous event notifications. Managed by Sơn.
+  summary: Register webhook endpoint
+  description: Configures an HTTPS destination URL for push-based asynchronous event notifications.
   operationId: createWebhookEndpoint
   tags:
     - Webhooks
@@ -12,22 +73,89 @@ post:
       application/json:
         schema:
           $ref: "./schemas.yaml#/CreateWebhookEndpointRequest"
+        example:
+          url: "https://example.com/api/webhooks"
+          events:
+            - "payment_intent.succeeded"
+            - "payment_intent.payment_failed"
   responses:
     "201":
       description: Webhook endpoint registered successfully.
       content:
         application/json:
           schema:
-            $ref: "./schemas.yaml#/WebhookEndpointResponse"
+            $ref: "./schemas.yaml#/CreateWebhookEndpointResponse"
+          example:
+            id: "we_01HXZ5M4N5P678"
+            url: "https://example.com/api/webhooks"
+            events:
+              - "payment_intent.succeeded"
+              - "payment_intent.payment_failed"
+            status: "active"
+            secret: "whsec_ABC123XYZ456"
+            created_at: "2026-10-25T16:28:08Z"
     "400":
       description: Invalid endpoint URL or unsupported event triggers.
       content:
         application/problem+json:
           schema:
             $ref: "../components/problem.yaml#/ProblemDocument"
-    "501":
-      description: Domain handler unimplemented.
+          example:
+            type: "https://api.stripe-lite.internal/errors/invalid-request"
+            title: "Bad Request"
+            status: 400
+            detail: "The URL must be a valid HTTPS destination and events must contain only supported event types."
+            instance: "/requests/req_9b1deb4d3b7d"
+            invalid_params:
+              - name: "url"
+                reason: "Must be an HTTPS URL."
+              - name: "events"
+                reason: "Contains an unsupported event type."
+    "401":
+      description: Authentication credentials are missing or invalid.
       content:
         application/problem+json:
           schema:
             $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "A valid API credential is required."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "403":
+      description: The authenticated caller is not allowed to create webhook endpoints.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "The API credential does not have permission to create webhook endpoints."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "409":
+      description: An endpoint with the same destination URL already exists.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/conflict"
+            title: "Conflict"
+            status: 409
+            detail: "A webhook endpoint for this URL already exists."
+            instance: "/requests/req_9b1deb4d3b7d"
+    "500":
+      description: The endpoint could not be persisted because of an unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "../components/problem.yaml#/ProblemDocument"
+          example:
+            type: "https://api.stripe-lite.internal/errors/internal"
+            title: "Internal Server Error"
+            status: 500
+            detail: "The webhook endpoint could not be created."
+            instance: "/requests/req_9b1deb4d3b7d"

@@ -66,6 +66,12 @@ paths:
   /webhook-endpoints:
     $ref: "./webhooks/endpoints.yaml"
 
+  /webhook-endpoints/{id}:
+    $ref: "./webhooks/endpoint.yaml"
+
+  /webhook-endpoints/{id}/rotate-secret:
+    $ref: "./webhooks/rotate_secret.yaml"
+
 components:
   securitySchemes:
     BearerAuth:
