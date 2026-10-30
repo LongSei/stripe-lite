@@ -112,3 +112,28 @@ func TestPaymentsHTTPGuards(t *testing.T) {
 	call(t, limited, "GET", "/v1/payment-intents", testKey, "", "", 503)
 	call(t, limited, "GET", "/v1/payment-intents", testKey, "", "", 429)
 }
+
+func TestGatewayNotFound(t *testing.T) {
+	router := testRouter(t, nil, "merchant_test", 100)
+	router.NoRoute(NotFoundHandler)
+	request := httptest.NewRequest("GET", "/v1/not-a-route", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != 404 || response.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("invalid 404 response: %d %v", response.Code, response.Header())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = doc.Components.Schemas["ProblemDocument"].Value.VisitJSON(body); err != nil {
+		t.Fatal(err)
+	}
+	if body["status"] != float64(404) || body["instance"] != "/v1/not-a-route" || body["type"] != "https://api.stripe-lite.internal/errors/not-found" {
+		t.Fatalf("unexpected problem: %v", body)
+	}
+}

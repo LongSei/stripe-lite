@@ -72,6 +72,8 @@ func main() {
 		ErrorHandler: v1.PaymentBindingError,
 	})
 
+	router.NoRoute(v1.NotFoundHandler)
+
 	serverAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{
 		Addr:              serverAddr,

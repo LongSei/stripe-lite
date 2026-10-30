@@ -56,8 +56,9 @@ stripe-lite/
 
 - **Go**: Version `1.25` or newer
 - **Make**: Standard GNU `make`
-- **Bash, curl, jq & OpenSSL**: For the HTTP verification suite
-- **PostgreSQL 16 or Docker**: For `make test-integration` and `make verify`. Docker is optional when test database URLs are supplied.
+- **Bash & curl**: For gateway smoke verification; no DB or Docker is required.
+- **jq & OpenSSL**: Only for full Payments verification with a test database.
+- **PostgreSQL 16 or Docker**: For `make test-integration`. Full Payments verification uses `PAYMENTS_TEST_DATABASE_URL`; database provisioning is separate.
 - **Node.js & npx**: Required to bundle and lint the OpenAPI specification
 
 ---
@@ -115,7 +116,7 @@ Once the server is running, access:
 | `make run` | Builds binary and boots the HTTP gateway. |
 | `make test` | Runs unit and contract tests with the race detector; no database or Docker is required. |
 | `make test-integration` | Runs PostgreSQL integration tests and unit tests. Uses disposable Docker PostgreSQL unless test database URLs are supplied. |
-| `make verify` | Runs all nine Payments operations against an isolated database and server. |
+| `make verify` | Runs gateway HTTP smoke tests without DB/Docker. Also runs Payments assertions when `PAYMENTS_TEST_DATABASE_URL` is set. |
 | `make clean` | Removes `./bin/` artifacts and generated code. |
 
 ---

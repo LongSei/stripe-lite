@@ -3,6 +3,7 @@ package v1
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/thep1ckaxe91/stripe-lite/internal/payments"
 )
 
@@ -42,4 +43,15 @@ func newNotImplementedProblem(instance, detail string) ProblemDocument {
 		Detail:   &detail,
 		Instance: &instance,
 	}
+}
+
+// NotFoundHandler returns the common problem document for an unknown route.
+func NotFoundHandler(c *gin.Context) {
+	detail := "The requested route was not found."
+	instance := c.Request.URL.Path
+	c.Header("Content-Type", "application/problem+json")
+	c.AbortWithStatusJSON(http.StatusNotFound, ProblemDocument{
+		Type: "https://api.stripe-lite.internal/errors/not-found", Title: http.StatusText(http.StatusNotFound),
+		Status: http.StatusNotFound, Detail: &detail, Instance: &instance,
+	})
 }

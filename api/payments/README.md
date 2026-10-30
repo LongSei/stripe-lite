@@ -268,11 +268,22 @@ It applies both migrations and removes the container when the checks finish.
 To use an existing disposable database, set both `PAYMENTS_TEST_DATABASE_URL` and `PAYMENTS_TEST_ADMIN_URL`.
 The admin connection is needed only for schema and permission checks.
 
-`make verify` starts the real server and checks all nine operations over HTTP.
-The script uses Bash, curl, jq, and OpenSSL. It does not use Python.
-It creates a disposable PostgreSQL container unless `PAYMENTS_TEST_DATABASE_URL` is set.
-That URL must point to an empty test database with both migrations applied.
+`make verify` runs gateway smoke tests without PostgreSQL or Docker.
+It needs Bash and curl, plus the normal shell utilities. It does not need jq or OpenSSL in smoke mode.
+The checks cover health probes, Swagger UI, JSON/YAML specifications, a problem+json 404, and the Auth/Webhooks 501 stubs.
+All six Webhooks routes and all Payments path references remain in the combined specification.
+The script does not invoke Docker or create a database.
+
+Set `PAYMENTS_TEST_DATABASE_URL` to enable the full Payments assertions after the smoke tests.
+That URL must point to a disposable test database with both migrations applied.
+This mode also needs jq and OpenSSL. It fails if the supplied database is unavailable.
+It checks all nine Payments operations, the asynchronous worker, original response replay, and exact int64 amounts.
+To provision PostgreSQL explicitly for this check, run:
+
+```sh
+./scripts/with-test-db.sh make verify
+```
+
 Set `VERIFY_PORT` to choose a server port. Otherwise, the script chooses a random high port.
-It checks the asynchronous worker, original response replay, and exact int64 amounts.
 The integration tests validate response bodies and headers against the OpenAPI contract.
 The database tests check concurrent refunds, capture versus cancel, and immutable ledger permissions.
